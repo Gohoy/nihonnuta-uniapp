@@ -1,4 +1,42 @@
+<template>
+  <view class="bg-white">
+    <view class="mt-2 text-center text-2xl">
+      Nihonnuta
+    </view>
+    <wd-search hide-cancel disabled @click="openSearchPage" />
+
+    <wd-cell title="推荐歌曲" is-link class="mt-4 px-4" />
+    <view v-for="song in songs" :key="song.id">
+      <wd-card class="" @click="handleSongClick">
+        <view class="align-center flex justify-between">
+          <view class="flex">
+            <wd-img :width="50" :height="50" :src="song.coverUrl" />
+            <view class="ml-4">
+              <view class="font-bold">
+                {{ song.title }}
+              </view>
+              <view class="text-gray-500">
+                {{ song.artist }}
+              </view>
+            </view>
+          </view>
+          <view class="w-25 flex flex-row items-center justify-between">
+            <view class="flex flex-row">
+              <view v-for="i in 5" :key="i">
+                <wd-icon :name="i <= song.difficulty ? 'star-filled' : 'star'" />
+              </view>
+            </view>
+            <wd-icon name="arrow-right" />
+          </view>
+        </view>
+      </wd-card>
+    </view>
+  </view>
+</template>
+
 <script lang="ts" setup>
+import { useRouter } from 'vue-router'
+
 defineOptions({
   name: 'Home',
 })
@@ -11,43 +49,34 @@ definePage({
     navigationBarTitleText: '首页',
   },
 })
-
-const description = ref(
-  'unibest 是一个集成了多种工具和技术的 uniapp 开发模板，由 uniapp + Vue3 + Ts + Vite5 + UnoCss + VSCode 构建，模板具有代码提示、自动格式化、统一配置、代码片段等功能，并内置了许多常用的基本组件和基本功能，让你编写 uniapp 拥有 best 体验。',
-)
-console.log('index/index 首页打印了')
-
 onLoad(() => {
   console.log('测试 uni API 自动引入: onLoad')
 })
+function handleSearch(value: string) {
+  console.log('搜索', value)
+}
+function handleClear() {
+  console.log('清空搜索内容')
+}
+function handleCancel() {
+  console.log('取消搜索')
+}
+function handleChange(value: string) {
+  console.log('搜索内容变化', value)
+}
+const keyword = ref('')
+const songs = ref([
+  { id: 1, title: 'Song 1', artist: 'Artist 1', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 1 },
+  { id: 2, title: 'Song 2', artist: 'Artist 2', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 2 },
+  { id: 3, title: 'Song 3', artist: 'Artist 3', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 3 },
+  { id: 1, title: 'Song 1', artist: 'Artist 1', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 1 },
+  { id: 3, title: 'Song 3', artist: 'Artist 3', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 3 },
+])
+function handleSongClick() {
+  console.log('点击歌曲')
+}
+const router = useRouter()
+function openSearchPage() {
+  router.push({ path: '/pages/search/search' })
+}
 </script>
-
-<template>
-  <view class="bg-white px-4 pt-safe">
-    <view class="mt-10">
-      <image src="/static/logo.svg" alt="" class="mx-auto block h-28 w-28" />
-    </view>
-    <view class="mt-4 text-center text-4xl text-[#d14328]">
-      unibest
-    </view>
-    <view class="mb-8 mt-2 text-center text-2xl">
-      最好用的 uniapp 开发模板
-    </view>
-
-    <view class="m-auto mb-2 max-w-100 text-justify indent text-4">
-      {{ description }}
-    </view>
-    <view class="mt-4 text-center">
-      作者：
-      <text class="text-green-500">
-        菲鸽
-      </text>
-    </view>
-    <view class="mt-4 text-center">
-      官网地址：
-      <text class="text-green-500">
-        https://unibest.tech
-      </text>
-    </view>
-  </view>
-</template>

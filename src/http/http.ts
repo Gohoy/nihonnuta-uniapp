@@ -21,9 +21,13 @@ export function http<T>(options: CustomRequestOptions) {
       // #endif
       // 响应成功
       success: async (res) => {
-        const responseData = res.data as IResponse<T>
+        const rawData = res.data as any
+        // 情况 1：后端没有统一包装（没有 code 字段）
+        if (rawData && typeof rawData === 'object' && !('data' in rawData) && !('result' in rawData)) {
+          return resolve(rawData as T)
+        }
+        const responseData = rawData as IResponse<T>
         const { code } = responseData
-
         // 检查是否是401错误（包括HTTP状态码401或业务码401）
         const isTokenExpired = res.statusCode === 401 || code === 401
 
@@ -91,7 +95,6 @@ export function http<T>(options: CustomRequestOptions) {
 
           return reject(res)
         }
-
         // 处理其他成功状态（HTTP状态码200-299）
         if (res.statusCode >= 200 && res.statusCode < 300) {
           // 处理业务逻辑错误
@@ -101,7 +104,14 @@ export function http<T>(options: CustomRequestOptions) {
               title: responseData.msg || responseData.message || '请求错误',
             })
           }
-          return resolve(responseData.data)
+          if (responseData.result !== undefined) {
+            return resolve(responseData.result)
+          }
+          if (responseData.data !== undefined) {
+            return resolve(responseData.data)
+          }
+          // 一般不会走到这里
+          return resolve(undefined)
         }
 
         // 处理其他错误
