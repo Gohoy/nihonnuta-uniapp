@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy all files first (needed for prepare scripts)
 COPY . .
 
-# Install dependencies, skip prepare hooks
-RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
+# Install dependencies, skip prepare hooks, then run init-baseFiles manually
+RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts && pnpm init-baseFiles
 
 ARG VITE_SERVER_BASEURL
 ENV VITE_SERVER_BASEURL=$VITE_SERVER_BASEURL
