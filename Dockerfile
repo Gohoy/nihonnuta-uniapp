@@ -1,10 +1,16 @@
 FROM node:20-alpine AS build
 
-WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable && pnpm install --frozen-lockfile
+# Install git for husky/prepare scripts
+RUN apk add --no-cache git
 
+WORKDIR /app
+
+# Copy all files first (needed for prepare scripts)
 COPY . .
+
+# Install dependencies, skip prepare hooks
+RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
+
 ARG VITE_SERVER_BASEURL
 ENV VITE_SERVER_BASEURL=$VITE_SERVER_BASEURL
 RUN pnpm build:h5
