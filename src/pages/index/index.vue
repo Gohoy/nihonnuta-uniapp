@@ -6,36 +6,44 @@
     <wd-search hide-cancel disabled @click="openSearchPage" />
 
     <wd-cell title="推荐歌曲" is-link class="mt-4 px-4" />
-    <view v-for="song in songs" :key="song.id">
-      <wd-card class="" @click="handleSongClick">
-        <view class="align-center flex justify-between">
-          <view class="flex">
-            <wd-img :width="50" :height="50" :src="song.coverUrl" />
-            <view class="ml-4">
-              <view class="font-bold">
-                {{ song.title }}
-              </view>
-              <view class="text-gray-500">
-                {{ song.artist }}
-              </view>
-            </view>
-          </view>
-          <view class="w-25 flex flex-row items-center justify-between">
-            <view class="flex flex-row">
-              <view v-for="i in 5" :key="i">
-                <wd-icon :name="i <= song.difficulty ? 'star-filled' : 'star'" />
+    <template v-if="songs.length > 0">
+      <view v-for="song in songs" :key="song.song_id">
+        <wd-card class="" @click="handleSongClick">
+          <view class="align-center flex justify-between">
+            <view class="flex">
+              <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
+              <view class="ml-4">
+                <view class="font-bold">
+                  {{ song.song_name }}
+                </view>
+                <view class="text-gray-500">
+                  {{ song.singer }}
+                </view>
               </view>
             </view>
-            <wd-icon name="arrow-right" />
+            <view class="w-25 flex flex-row items-center justify-between">
+              <view class="flex flex-row">
+                <view v-for="i in 5" :key="i">
+                  <wd-icon :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" />
+                </view>
+              </view>
+              <wd-icon name="arrow-right" />
+            </view>
           </view>
-        </view>
-      </wd-card>
-    </view>
+        </wd-card>
+      </view>
+    </template>
+    <template v-else>
+      <view class="p-4 text-center text-gray-500">
+        暂无推荐歌曲
+      </view>
+    </template>
   </view>
 </template>
 
 <script lang="ts" setup>
 import { useRouter } from 'vue-router'
+import { getSongsPage } from '@/api/songs'
 
 defineOptions({
   name: 'Home',
@@ -49,8 +57,10 @@ definePage({
     navigationBarTitleText: '首页',
   },
 })
-onLoad(() => {
+onLoad(async () => {
   console.log('测试 uni API 自动引入: onLoad')
+  const res: any = await getSongsPage(0, 10)
+  songs.value = res.songs || []
 })
 function handleSearch(value: string) {
   console.log('搜索', value)
@@ -65,13 +75,7 @@ function handleChange(value: string) {
   console.log('搜索内容变化', value)
 }
 const keyword = ref('')
-const songs = ref([
-  { id: 1, title: 'Song 1', artist: 'Artist 1', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 1 },
-  { id: 2, title: 'Song 2', artist: 'Artist 2', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 2 },
-  { id: 3, title: 'Song 3', artist: 'Artist 3', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 3 },
-  { id: 1, title: 'Song 1', artist: 'Artist 1', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 1 },
-  { id: 3, title: 'Song 3', artist: 'Artist 3', coverUrl: 'https://imgessl.kugou.com/stdmusic/20210811/20210811162401966545.jpg', difficulty: 3 },
-])
+const songs = ref([])
 function handleSongClick() {
   console.log('点击歌曲')
 }

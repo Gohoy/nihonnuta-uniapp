@@ -1,8 +1,7 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router'
 import { useToast } from 'wot-design-uni'
-import { getLyricById } from '@/api/songs'
-import { http } from '@/http/http'
+import { getNeteaseLyricById, searchNeteaseSongs } from '@/api/songs'
 
 defineOptions({
   name: '',
@@ -19,16 +18,16 @@ const keywords = ref('')
 const searchResults = ref([])
 function handleSearchNeteaseSongs() {
   console.log('搜索网易云歌曲')
-  http.get('/songs/search', { keywords: keywords.value }).then((res: any) => {
+  searchNeteaseSongs(keywords.value).then((res: any) => {
     console.log('搜索结果', res)
-    searchResults.value = res.songs
+    searchResults.value = res.songs || []
   })
 }
 const router = useRouter()
 const toast = useToast()
 function goSongConfig(id) {
   // 获取歌词，查看是否是日语歌
-  getLyricById(id).then((res: any) => {
+  getNeteaseLyricById(id).then((res: any) => {
     console.log('搜索结果', res)
 
     if (res.romalrc.lyric === '') {

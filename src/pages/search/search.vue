@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router'
-import { http } from '@/http/http'
+import { searchLocalSongs } from '@/api/songs'
 
 definePage({
   style: {
@@ -14,8 +14,8 @@ onLoad(() => {
 })
 const songs = ref([])
 function handleSearchSongs() {
-  http.get('/base/songs/search', { keywords: keywords.value }).then((res: any) => {
-    songs.value = res
+  searchLocalSongs(keywords.value).then((res: any) => {
+    songs.value = res.songs || []
     console.log('搜索结果', res)
   })
 }
@@ -36,8 +36,30 @@ function goToCreateSong() {
     />
   </view>
   <template v-if="songs.length > 0">
-    <view v-for="song in songs" :key="song.id">
-      11
+    <view v-for="song in songs" :key="song.song_id">
+      <wd-card class="mt-2" @click="handleSongClick">
+        <view class="align-center flex justify-between">
+          <view class="flex">
+            <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
+            <view class="ml-4">
+              <view class="font-bold">
+                {{ song.song_name }}
+              </view>
+              <view class="text-gray-500">
+                {{ song.singer }}
+              </view>
+            </view>
+          </view>
+          <view class="w-25 flex flex-row items-center justify-between">
+            <view class="flex flex-row">
+              <view v-for="i in 5" :key="i">
+                <wd-icon :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" />
+              </view>
+            </view>
+            <wd-icon name="arrow-right" />
+          </view>
+        </view>
+      </wd-card>
     </view>
   </template>
   <template v-else-if="keywords">

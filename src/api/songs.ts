@@ -1,28 +1,29 @@
 import { http } from '@/http/http'
 
 /**
- * 获取歌词（仅 LRC 格式）
+ * 获取歌曲列表（本地库）
  */
-export function getLyricById(id: string) {
-  return http.get('/songs/lyric', { id })
-}
-/**
- * 更新歌曲状态
- */
-export function updateSongStatus(songId: string, status: 'draft' | 'reviewing' | 'published' | 'unpublished') {
-  return http.post('/songs/status', { songId, status })
+export function getSongsPage(offset = 0, limit = 10) {
+  return http.get('/songs/page', { offset, limit })
 }
 
 /**
- * 删除歌曲
+ * 搜索歌曲（本地库）
  */
-export function deleteSong(songId: string) {
-  return http.delete('/songs', { songId })
+export function searchLocalSongs(keywords: string, offset = 0, limit = 20) {
+  return http.get('/songs/search', { keywords, offset, limit })
 }
 
 /**
- * 搜索歌曲
+ * 搜索网易云歌曲
  */
-export function searchSongs(keyword: string, page = 1, pageSize = 20) {
-  return http.get('/songs/search', { keyword, page, pageSize })
+export function searchNeteaseSongs(keywords: string, offset = 0, limit = 20) {
+  return http.get('/songs/netease/search', { keywords, offset, limit })
+}
+
+/**
+ * 获取网易云歌词
+ */
+export function getNeteaseLyricById(id: string) {
+  return http.get('/songs/netease/lyric', { id })
 }
