@@ -8,6 +8,13 @@ export function getSongsPage(offset = 0, limit = 10) {
 }
 
 /**
+ * 获取热门歌曲
+ */
+export function getPopularSongs(limit = 10) {
+  return http.get('/songs/popular', { limit })
+}
+
+/**
  * 搜索歌曲（本地库）
  */
 export function searchLocalSongs(keywords: string, offset = 0, limit = 20) {
@@ -26,4 +33,39 @@ export function searchNeteaseSongs(keywords: string, offset = 0, limit = 20) {
  */
 export function getNeteaseLyricById(id: string) {
   return http.get('/songs/netease/lyric', { id })
+}
+
+/**
+ * 获取本地歌曲处理后的歌词
+ */
+export function getProcessedSongById(id: string, userId?: string | number) {
+  return http.get('/songs/processed', { id, user_id: userId })
+}
+
+/**
+ * 获取处理后的歌词（带振假名、语法标注等）
+ */
+export function getProcessedNeteaseLyricById(id: string) {
+  return http.get('/songs/netease/processed', { id })
+}
+
+/**
+ * 获取网易云歌曲详情
+ */
+export function getNeteaseSongDetailById(id: string) {
+  return http.get('/songs/netease/song', { id })
+}
+
+/**
+ * 创建歌曲
+ */
+export function createSong(payload: any) {
+  return http.post('/songs', payload)
+}
+
+/**
+ * 播放计数
+ */
+export function playSong(id: string) {
+  return http.post(`/songs/${id}/play`)
 }

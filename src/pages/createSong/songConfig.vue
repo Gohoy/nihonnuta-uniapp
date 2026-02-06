@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { getNeteaseLyricById } from '@/api/songs'
+import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'wot-design-uni'
+import { createSong, getNeteaseLyricById, getNeteaseSongDetailById } from '@/api/songs'
+import { useUserStore } from '@/store/user'
+import { getEnvBaseUrl } from '@/utils'
 
 defineOptions({
   name: '',
@@ -15,22 +18,57 @@ definePage({
   },
 })
 const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+const mode = ref((route.query.mode as string) || 'netease')
 const songId = ref(route.query.songId as string)
-const songLyricObj = ref()
-const lyric = ref()
-const translation = ref()
-const romaLyric = ref()
+const songLyricObj = ref<any>()
+const lyric = ref<any[]>([])
+const translation = ref<any[]>([])
+const romaLyric = ref<any[]>([])
+const songName = ref('')
+const singer = ref('')
+const difficulty = ref(3)
+const isPublic = ref(true)
+const audioFilePath = ref('')
+const audioUrl = ref('')
+const lyricText = ref('')
+const loading = ref(false)
+const uploading = ref(false)
+const userStore = useUserStore()
 const hasLyrics = computed(() => {
   return (lyric.value && lyric.value.length) || (translation.value && translation.value.length) || (romaLyric.value && romaLyric.value.length)
 })
-onMounted(() => {
-  getNeteaseLyricById(songId.value).then((res) => {
-    songLyricObj.value = res
-    console.log(songLyricObj.value)
-    lyric.value = parseLRC(songLyricObj.value.lrc.lyric)
-    translation.value = parseLRC(songLyricObj.value.tlyric.lyric)
-    romaLyric.value = parseLRC(songLyricObj.value.romalrc.lyric)
-  })
+const showPreview = computed(() => mode.value !== 'manual')
+onMounted(async () => {
+  if (mode.value === 'manual') {
+    if (!songId.value) {
+      songId.value = Date.now().toString()
+    }
+    return
+  }
+  if (!songId.value) {
+    toast.show('缺少歌曲 ID')
+    return
+  }
+  try {
+    const [lyricRes, detailRes]: any = await Promise.all([
+      getNeteaseLyricById(songId.value),
+      getNeteaseSongDetailById(songId.value),
+    ])
+    songLyricObj.value = lyricRes
+    lyric.value = parseLRC(songLyricObj.value?.lrc?.lyric || '')
+    translation.value = parseLRC(songLyricObj.value?.tlyric?.lyric || '')
+    romaLyric.value = parseLRC(songLyricObj.value?.romalrc?.lyric || '')
+    lyricText.value = songLyricObj.value?.lrc?.lyric || ''
+
+    const songDetail = detailRes?.songs?.[0]
+    songName.value = songDetail?.name || ''
+    singer.value = songDetail?.ar?.map((a: any) => a.name).join(' / ') || ''
+  }
+  catch (e: any) {
+    toast.show(e?.message || '加载失败')
+  }
 })
 
 function parseLRC(lrcText: string) {
@@ -77,11 +115,155 @@ function parseLRC(lrcText: string) {
 
 
 const formatLine = (line: any) => line?.text || ''
+
+async function chooseAudio() {
+  // #ifdef H5
+  uni.chooseFile({
+    count: 1,
+    type: 'file',
+    success(res) {
+      const file = res.tempFiles?.[0]
+      audioFilePath.value = file?.path || ''
+    },
+  })
+  // #endif
+  // #ifdef MP-WEIXIN
+  uni.chooseMedia({
+    count: 1,
+    mediaType: ['audio'],
+    success(res) {
+      const file = res.tempFiles?.[0]
+      audioFilePath.value = file?.tempFilePath || ''
+    },
+  })
+  // #endif
+}
+
+async function uploadAudio() {
+  if (!audioFilePath.value) {
+    toast.show('请先选择音频文件')
+    return
+  }
+  uploading.value = true
+  const url = `${getEnvBaseUrl()}/songs/upload`
+  uni.uploadFile({
+    url,
+    filePath: audioFilePath.value,
+    name: 'file',
+    formData: {
+      songId: songId.value || Date.now().toString(),
+      filename: audioFilePath.value.split('/').pop() || 'audio.mp3',
+    },
+    success(res) {
+      try {
+        const data = JSON.parse(res.data)
+        audioUrl.value = data?.data?.url || ''
+        toast.show('上传成功')
+      }
+      catch {
+        toast.show('上传失败')
+      }
+    },
+    fail() {
+      toast.show('上传失败')
+    },
+    complete() {
+      uploading.value = false
+    },
+  })
+}
+
+async function handleSave() {
+  if (!songName.value.trim()) {
+    toast.show('请输入歌名')
+    return
+  }
+  if (!singer.value.trim()) {
+    toast.show('请输入歌手')
+    return
+  }
+  if (!audioUrl.value) {
+    toast.show('请先上传音频')
+    return
+  }
+  loading.value = true
+  try {
+    const payload = {
+      song_id: songId.value || Date.now().toString(),
+      song_name: songName.value,
+      singer: singer.value,
+      difficulty: difficulty.value,
+      audio_url: audioUrl.value,
+      lyrics_text: lyricText.value,
+      is_public: isPublic.value,
+      status: 'published',
+      create_user: userStore.userInfo?.userId || null,
+    }
+    await createSong(payload)
+    toast.show('保存成功')
+    router.push({ path: '/pages/index/index' })
+  }
+  catch (e: any) {
+    toast.show(e?.message || '保存失败')
+  }
+  finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
   <view class="p-4">
-    <template v-if="hasLyrics">
+    <view class="mb-4">
+      <wd-card title="歌曲信息">
+        <view class="mb-3">
+          <text class="text-sm text-gray-500">歌名</text>
+          <wd-input v-model="songName" placeholder="请输入歌名" />
+        </view>
+        <view class="mb-3">
+          <text class="text-sm text-gray-500">歌手</text>
+          <wd-input v-model="singer" placeholder="请输入歌手" />
+        </view>
+        <view class="mb-3">
+          <text class="text-sm text-gray-500">难度 (1-5)</text>
+          <wd-slider v-model="difficulty" :min="1" :max="5" />
+        </view>
+        <view class="mb-3 flex items-center justify-between">
+          <text class="text-sm text-gray-500">公开给其他人</text>
+          <wd-switch v-model="isPublic" size="20" />
+        </view>
+      </wd-card>
+    </view>
+
+    <view class="mb-4">
+      <wd-card title="上传音频">
+        <view class="text-gray-500">上传后可试听与学习</view>
+        <view class="mt-3 flex items-center gap-3">
+          <wd-button type="primary" size="small" @click="chooseAudio">选择音频</wd-button>
+          <wd-button type="success" size="small" :loading="uploading" @click="uploadAudio">上传</wd-button>
+        </view>
+        <view v-if="audioUrl" class="mt-2 text-xs text-green-600">
+          上传完成
+        </view>
+      </wd-card>
+    </view>
+
+    <view class="mb-4">
+      <wd-card title="歌词配置">
+        <view class="text-gray-500">
+          若歌词不匹配，可在此编辑
+        </view>
+        <view class="mt-3">
+          <wd-textarea v-model="lyricText" placeholder="粘贴 LRC 或纯文本歌词" :maxlength="-1" />
+        </view>
+      </wd-card>
+    </view>
+
+    <view class="mb-4">
+      <wd-button block type="primary" :loading="loading" @click="handleSave">保存歌曲</wd-button>
+    </view>
+
+    <template v-if="showPreview && hasLyrics">
       <view class="mb-4">
         <view class="mb-2 text-lg font-bold">
           原文
@@ -107,10 +289,11 @@ const formatLine = (line: any) => line?.text || ''
         </view>
       </view>
     </template>
-    <template v-else>
+    <template v-else-if="showPreview">
       <view class="text-center text-gray-500">
         歌词加载中...
       </view>
     </template>
+    <wd-toast />
   </view>
 </template>

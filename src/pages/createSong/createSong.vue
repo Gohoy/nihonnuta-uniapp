@@ -37,8 +37,13 @@ function goSongConfig(id) {
 
     router.push({ path: '/pages/createSong/songConfig', query: {
       songId: id,
+      mode: 'netease',
     } })
   })
+}
+
+function goManualUpload() {
+  router.push({ path: '/pages/createSong/songConfig', query: { mode: 'manual' } })
 }
 </script>
 
@@ -61,6 +66,16 @@ function goSongConfig(id) {
             </wd-cell>
           </wd-cell-group>
         </scroll-view>
+      </wd-card>
+    </view>
+    <view class="mt-4">
+      <wd-card title="没找到？直接上传">
+        <view class="text-gray-500">
+          上传你自己的音频，并配置歌词
+        </view>
+        <view class="mt-3 text-blue-500" @click="goManualUpload">
+          去上传
+        </view>
       </wd-card>
     </view>
     <wd-toast />

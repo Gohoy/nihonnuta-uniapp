@@ -8,12 +8,14 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+node-compile-cache
 .DS_Store
 dist
 *.local
 
 # Editor directories and files
 .idea
+.trae
 *.suo
 *.ntvs*
 *.njsproj

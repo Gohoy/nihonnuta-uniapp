@@ -9,18 +9,38 @@ definePage({
 })
 const keywords = ref('')
 const autoFocus = ref(true)
+const loading = ref(false)
+const error = ref('')
 onLoad(() => {
   autoFocus.value = true
 })
 const songs = ref([])
 function handleSearchSongs() {
+  loading.value = true
+  error.value = ''
   searchLocalSongs(keywords.value).then((res: any) => {
     songs.value = res.songs || []
     console.log('搜索结果', res)
+  }).catch((e: any) => {
+    error.value = e?.message || '搜索失败'
+  }).finally(() => {
+    loading.value = false
   })
 }
-function handleSongClick() {
-  console.log('点击歌曲')
+  function handleSongClick(song: any) {
+    if (!song?.song_id) {
+      return
+    }
+    router.push({
+      path: '/pages/song/detail',
+      query: {
+        songId: String(song.song_id),
+        source: 'local',
+        songName: song.song_name || '',
+        singer: song.singer || '',
+        coverUrl: song.cover_url || '',
+      },
+    })
 }
 const router = useRouter()
 function goToCreateSong() {
@@ -35,9 +55,19 @@ function goToCreateSong() {
       @search="handleSearchSongs"
     />
   </view>
-  <template v-if="songs.length > 0">
+  <template v-if="loading">
+    <view class="p-4 text-center text-gray-500">
+      搜索中...
+    </view>
+  </template>
+  <template v-else-if="error">
+    <view class="p-4 text-center text-red-500">
+      {{ error }}
+    </view>
+  </template>
+  <template v-else-if="songs.length > 0">
     <view v-for="song in songs" :key="song.song_id">
-      <wd-card class="mt-2" @click="handleSongClick">
+        <wd-card class="mt-2" @click="handleSongClick(song)">
         <view class="align-center flex justify-between">
           <view class="flex">
             <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
@@ -67,6 +97,9 @@ function goToCreateSong() {
       暂无搜索结果
       <view class="mt-4 text-blue-500" @click="goToCreateSong">
         去新建歌曲
+      </view>
+      <view class="mt-2 text-blue-500" @click="goToCreateSong">
+        去上传歌曲
       </view>
     </view>
   </template>
