@@ -3,7 +3,23 @@
     <view class="mt-2 text-center text-2xl">
       Nihonnuta
     </view>
-    <wd-search hide-cancel disabled @click="openSearchPage" />
+    
+    <!-- 添加歌曲入口 -->
+    <view class="mt-4 px-4">
+      <wd-card>
+        <view class="flex items-center justify-between">
+          <view class="flex-1">
+            <view class="text-lg font-bold mb-1">添加新歌曲</view>
+            <view class="text-sm text-gray-500">从网易云搜索并一键导入日语歌曲</view>
+          </view>
+          <wd-button type="primary" size="small" @click="openSearchPage">
+            去搜索
+          </wd-button>
+        </view>
+      </wd-card>
+    </view>
+    
+    <wd-search hide-cancel disabled placeholder="点击搜索歌曲（支持网易云搜索）" @click="openSearchPage" />
 
     <view class="mt-4 px-4 flex gap-2">
       <wd-cell title="单词本" is-link class="flex-1" @click="goToWordbook" />
