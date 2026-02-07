@@ -3,6 +3,10 @@ FROM node:20-alpine AS build
 # Install git for husky/prepare scripts
 RUN apk add --no-cache git
 
+# Use npm mirror to avoid registry access issues during build
+ENV COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
+RUN npm config set registry https://registry.npmmirror.com
+
 WORKDIR /app
 
 # Copy all files first (needed for prepare scripts)

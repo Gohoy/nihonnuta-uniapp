@@ -5,6 +5,11 @@
     </view>
     <wd-search hide-cancel disabled @click="openSearchPage" />
 
+    <view class="mt-4 px-4 flex gap-2">
+      <wd-cell title="单词本" is-link class="flex-1" @click="goToWordbook" />
+      <wd-cell title="语法本" is-link class="flex-1" @click="goToGrammarBook" />
+    </view>
+    
     <wd-cell title="我学过的歌" is-link class="mt-4 px-4" />
     <template v-if="learnedSongs.length > 0">
       <view v-for="song in learnedSongs" :key="song.song_id">
@@ -238,5 +243,13 @@ function handleSongClick(song: any) {
 const router = useRouter()
 function openSearchPage() {
   router.push({ path: '/pages/search/search' })
+}
+
+function goToWordbook() {
+  router.push({ path: '/pages/wordbook/index' })
+}
+
+function goToGrammarBook() {
+  router.push({ path: '/pages/grammarbook/index' })
 }
 </script>
