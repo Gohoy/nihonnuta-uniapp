@@ -1,129 +1,187 @@
 <template>
-  <view class="bg-white min-h-screen">
-    <!-- 统计信息 -->
-    <view class="p-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white">
-      <view class="text-lg font-bold mb-3">我的单词本</view>
-      <view v-if="stats" class="flex justify-around">
-        <view class="text-center">
-          <view class="text-2xl font-bold">{{ stats.total_words || 0 }}</view>
-          <view class="text-sm opacity-90">总单词</view>
+  <view class="bg-gray-50 min-h-screen">
+    <!-- 统计信息卡片 -->
+    <view class="p-4">
+      <wd-card title="我的单词本" class="mb-4">
+        <view v-if="stats" class="grid grid-cols-4 gap-4">
+          <view class="text-center">
+            <view class="text-2xl font-bold text-gray-800">{{ stats.total_words || 0 }}</view>
+            <view class="text-xs text-gray-500 mt-1">总单词</view>
+          </view>
+          <view class="text-center">
+            <view class="text-2xl font-bold text-green-600">{{ stats.mastered_words || 0 }}</view>
+            <view class="text-xs text-gray-500 mt-1">已掌握</view>
+          </view>
+          <view class="text-center">
+            <view class="text-2xl font-bold text-blue-600">{{ stats.learning_words || 0 }}</view>
+            <view class="text-xs text-gray-500 mt-1">学习中</view>
+          </view>
+          <view class="text-center">
+            <view class="text-2xl font-bold text-gray-400">{{ stats.unmastered_words || 0 }}</view>
+            <view class="text-xs text-gray-500 mt-1">未掌握</view>
+          </view>
         </view>
-        <view class="text-center">
-          <view class="text-2xl font-bold">{{ stats.mastered_words || 0 }}</view>
-          <view class="text-sm opacity-90">已掌握</view>
+        <view v-else class="py-4 text-center text-gray-400">
+          加载中...
         </view>
-        <view class="text-center">
-          <view class="text-2xl font-bold">{{ stats.learning_words || 0 }}</view>
-          <view class="text-sm opacity-90">学习中</view>
-        </view>
-        <view class="text-center">
-          <view class="text-2xl font-bold">{{ stats.unmastered_words || 0 }}</view>
-          <view class="text-sm opacity-90">未掌握</view>
-        </view>
-      </view>
+      </wd-card>
     </view>
 
     <!-- 筛选标签 -->
-    <view class="flex gap-2 p-4 overflow-x-auto">
-      <view
-        v-for="tab in tabs"
-        :key="tab.value"
-        class="px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors"
-        :class="currentTab === tab.value ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'"
-        @click="switchTab(tab.value)"
-      >
-        {{ tab.label }}
-      </view>
+    <view class="px-4 mb-4">
+      <wd-segmented
+        v-model="currentTab"
+        :options="tabs"
+        @change="switchTab"
+      />
     </view>
 
     <!-- 单词列表 -->
-    <template v-if="loading">
-      <view class="p-4 text-center text-gray-500">加载中...</view>
-    </template>
-    <template v-else-if="error">
-      <view class="p-4 text-center text-red-500">{{ error }}</view>
-    </template>
-    <template v-else-if="words.length === 0">
-      <view class="p-4 text-center text-gray-500">暂无单词</view>
-    </template>
-    <template v-else>
-      <view v-for="word in words" :key="word.word_book_id" class="p-4 border-b border-gray-100">
-        <view class="flex items-start justify-between mb-2">
-          <view class="flex-1">
-            <view class="text-lg font-bold mb-1">{{ word.word }}</view>
-            <view class="text-sm text-gray-500 mb-1">{{ word.kana }}</view>
-            <view class="text-xs text-gray-400">{{ word.pos }}</view>
-          </view>
-          <view class="ml-4">
+    <view class="px-4">
+      <wd-loading v-if="loading" />
+      <wd-status-tip v-else-if="error" type="error" :tip="error" />
+      <wd-status-tip v-else-if="words.length === 0" type="empty" tip="暂无单词" />
+      <wd-cell-group v-else border>
+        <wd-cell
+          v-for="word in words"
+          :key="word.word_book_id"
+          :title="word.word"
+          :label="word.kana"
+          :value="word.meaning"
+          is-link
+          @click="openWordDetail(word)"
+        >
+          <template #icon>
             <wd-tag
               :type="getStatusType(word.master_status)"
               size="small"
+              round
             >
               {{ getStatusText(word.master_status) }}
             </wd-tag>
+          </template>
+          <template #label>
+            <view class="flex items-center gap-2 mt-1">
+              <text class="text-xs text-gray-500">{{ word.kana }}</text>
+              <text v-if="word.pos" class="text-xs text-gray-400">({{ word.pos }})</text>
+            </view>
+            <view v-if="word.song_name" class="text-xs text-gray-400 mt-1">
+              来自: {{ word.song_name }} - {{ word.singer }}
+            </view>
+          </template>
+        </wd-cell>
+      </wd-cell-group>
+
+      <!-- 加载更多 -->
+      <view v-if="hasMore && !loading" class="py-4 text-center">
+        <wd-button type="primary" plain @click="loadMore">
+          加载更多
+        </wd-button>
+      </view>
+    </view>
+
+    <!-- 单词详情弹窗 -->
+    <wd-popup
+      v-model="showDetail"
+      position="bottom"
+      closable
+      title="单词详情"
+      safe-area-inset-bottom
+    >
+      <view v-if="currentWord" class="p-4">
+        <view class="mb-4">
+          <view class="text-2xl font-bold mb-2">{{ currentWord.word }}</view>
+          <view class="text-lg text-gray-600 mb-2">{{ currentWord.kana }}</view>
+          <view class="flex items-center gap-2 mb-2">
+            <wd-tag
+              :type="getStatusType(currentWord.master_status)"
+              size="small"
+            >
+              {{ getStatusText(currentWord.master_status) }}
+            </wd-tag>
+            <wd-tag v-if="currentWord.pos" type="info" size="small">
+              {{ currentWord.pos }}
+            </wd-tag>
+          </view>
+          <view class="text-base text-gray-800 mb-2">
+            <text class="font-semibold">释义：</text>{{ currentWord.meaning }}
+          </view>
+          <view v-if="currentWord.song_name" class="text-sm text-gray-500">
+            来自: {{ currentWord.song_name }} - {{ currentWord.singer }}
           </view>
         </view>
-        
-        <view v-if="word.meaning" class="text-sm text-gray-600 mb-2">
-          {{ word.meaning }}
+
+        <!-- 笔记编辑 -->
+        <view class="mb-4">
+          <view class="text-sm font-semibold mb-2">我的笔记</view>
+          <wd-textarea
+            v-model="noteText"
+            placeholder="添加笔记..."
+            :maxlength="500"
+            :show-word-limit="true"
+          />
         </view>
-        
-        <view v-if="word.song_name" class="text-xs text-gray-400 mb-2">
-          来自: {{ word.song_name }} - {{ word.singer }}
-        </view>
-        
-        <view class="flex gap-2 mt-2">
+
+        <!-- 操作按钮 -->
+        <view class="flex gap-2 mb-4">
           <wd-button
-            v-if="word.master_status !== 'mastered'"
-            size="small"
+            v-if="currentWord.master_status !== 'mastered'"
             type="success"
-            @click="updateStatus(word, 'mastered')"
+            size="small"
+            block
+            @click="updateStatus(currentWord, 'mastered')"
           >
             标记为已掌握
           </wd-button>
           <wd-button
-            v-if="word.master_status !== 'learning'"
-            size="small"
+            v-if="currentWord.master_status !== 'learning'"
             type="primary"
-            @click="updateStatus(word, 'learning')"
+            size="small"
+            block
+            @click="updateStatus(currentWord, 'learning')"
           >
             标记为学习中
           </wd-button>
           <wd-button
-            v-if="word.master_status !== 'unmastered'"
+            v-if="currentWord.master_status !== 'unmastered'"
             size="small"
-            @click="updateStatus(word, 'unmastered')"
+            block
+            @click="updateStatus(currentWord, 'unmastered')"
           >
             标记为未掌握
           </wd-button>
+        </view>
+
+        <view class="flex gap-2">
           <wd-button
+            type="primary"
             size="small"
-            type="danger"
-            @click="handleRemove(word)"
+            block
+            @click="saveNote"
           >
-            删除
+            保存笔记
+          </wd-button>
+          <wd-button
+            type="danger"
+            size="small"
+            block
+            @click="handleRemove(currentWord)"
+          >
+            删除单词
           </wd-button>
         </view>
       </view>
-      
-      <!-- 加载更多 -->
-      <view v-if="hasMore" class="p-4 text-center">
-        <wd-button
-          type="primary"
-          plain
-          @click="loadMore"
-        >
-          加载更多
-        </wd-button>
-      </view>
-    </template>
+    </wd-popup>
+
+    <wd-toast />
   </view>
 </template>
 
 <script lang="ts" setup>
 import { onLoad } from '@dcloudio/uni-app'
-import { getWordbook, getWordbookStats, updateWordStatus, removeWord } from '@/api/wordbook'
+import { getWordbook, getWordbookStats, updateWordStatus, removeWord, updateWordNote } from '@/api/wordbook'
 import { useUserStore } from '@/store/user'
+import { useToast } from 'wot-design-uni'
 
 definePage({
   style: {
@@ -138,19 +196,24 @@ interface Word {
   pos: string
   meaning: string
   master_status: 'unmastered' | 'learning' | 'mastered'
+  note?: string
   song_name?: string
   singer?: string
 }
 
 const userStore = useUserStore()
+const toast = useToast()
 const loading = ref(true)
 const error = ref('')
 const words = ref<Word[]>([])
 const stats = ref<any>(null)
-const currentTab = ref<string>('all')
+const currentTab = ref('all')
 const offset = ref(0)
 const limit = 20
 const hasMore = ref(true)
+const showDetail = ref(false)
+const currentWord = ref<Word | null>(null)
+const noteText = ref('')
 
 const tabs = [
   { label: '全部', value: 'all' },
@@ -229,15 +292,20 @@ async function loadWords(reset = false) {
   }
 }
 
-function switchTab(tab: string) {
-  currentTab.value = tab
+function switchTab() {
   loadWords(true)
+}
+
+function openWordDetail(word: Word) {
+  currentWord.value = word
+  noteText.value = word.note || ''
+  showDetail.value = true
 }
 
 async function updateStatus(word: Word, status: 'unmastered' | 'learning' | 'mastered') {
   const userId = userStore.userInfo?.userId
   if (!userId || userId === -1) {
-    uni.showToast({ title: '请先登录', icon: 'none' })
+    toast.show('请先登录')
     return
   }
   
@@ -249,16 +317,38 @@ async function updateStatus(word: Word, status: 'unmastered' | 'learning' | 'mas
     })
     word.master_status = status
     await loadStats()
-    uni.showToast({ title: '更新成功', icon: 'success' })
+    toast.show('更新成功')
   } catch (e: any) {
-    uni.showToast({ title: e?.message || '更新失败', icon: 'none' })
+    toast.show(e?.message || '更新失败')
+  }
+}
+
+async function saveNote() {
+  if (!currentWord.value) return
+  
+  const userId = userStore.userInfo?.userId
+  if (!userId || userId === -1) {
+    toast.show('请先登录')
+    return
+  }
+  
+  try {
+    await updateWordNote({
+      user_id: userId,
+      word_book_id: currentWord.value.word_book_id,
+      note: noteText.value,
+    })
+    currentWord.value.note = noteText.value
+    toast.show('笔记保存成功')
+  } catch (e: any) {
+    toast.show(e?.message || '保存失败')
   }
 }
 
 async function handleRemove(word: Word) {
   const userId = userStore.userInfo?.userId
   if (!userId || userId === -1) {
-    uni.showToast({ title: '请先登录', icon: 'none' })
+    toast.show('请先登录')
     return
   }
   
@@ -271,9 +361,10 @@ async function handleRemove(word: Word) {
           await removeWord(word.word_book_id, userId)
           words.value = words.value.filter(w => w.word_book_id !== word.word_book_id)
           await loadStats()
-          uni.showToast({ title: '删除成功', icon: 'success' })
+          showDetail.value = false
+          toast.show('删除成功')
         } catch (e: any) {
-          uni.showToast({ title: e?.message || '删除失败', icon: 'none' })
+          toast.show(e?.message || '删除失败')
         }
       }
     },
@@ -289,4 +380,3 @@ onLoad(() => {
   loadWords(true)
 })
 </script>
-

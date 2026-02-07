@@ -13,10 +13,6 @@ const httpInterceptor = {
     // 如果您使用了alova，则请把下面的代码放开注释
     // alova 执行流程：alova beforeRequest --> 本拦截器 --> alova responded
     // return options
-    const proxyMap = {
-      songs: 'http://localhost:5217',
-      base: 'http://localhost:5217',
-    }
     const isProd = import.meta.env.PROD
 
     // 非 alova 请求，正常执行
@@ -33,15 +29,15 @@ const httpInterceptor = {
     // 非 http 开头需拼接地址
     if (!options.url.startsWith('http')) {
       if (isProd) {
+        // 生产环境使用 baseUrl
         options.url = baseUrl + options.url
       }
       else {
-        // 本地开发走代理映射
-        Object.keys(proxyMap).forEach((key) => {
-          if (options.url.startsWith(`/${key}`)) {
-            options.url = proxyMap[key] + options.url.replace(`/${key}`, '')
-          }
-        })
+        // 本地开发：确保URL以 /api 开头（Vite代理会处理）
+        if (!options.url.startsWith('/api')) {
+          options.url = '/api' + options.url
+        }
+        // Vite 代理配置会将 /api/* 代理到 http://localhost:5217/api/*
       }
     }
     // 1. 请求超时

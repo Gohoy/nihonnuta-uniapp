@@ -178,7 +178,8 @@ export default defineConfig(({ command, mode }) => {
             [VITE_APP_PROXY_PREFIX]: {
               target: VITE_SERVER_BASEURL,
               changeOrigin: true,
-              // 后端有/api前缀则不做处理，没有则需要去掉
+              // 后端路由没有 /api 前缀，需要去掉 /api
+              // 例如: /api/songs/page -> http://localhost:5217/songs/page
               rewrite: path => path.replace(new RegExp(`^${VITE_APP_PROXY_PREFIX}`), ''),
             },
           }

@@ -1,8 +1,9 @@
 <script lang="ts" setup>
+import { watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { searchLocalSongs, searchNeteaseSongs, importSongFromNetease } from '@/api/songs'
 import { useUserStore } from '@/store/user'
-import { useToast } from 'wot-design-uni'
+// import { useToast } from 'wot-design-uni' // 暂时不使用，改用原生提示
 
 definePage({
   style: {
@@ -11,45 +12,92 @@ definePage({
 })
 
 const router = useRouter()
-const toast = useToast()
+// const toast = useToast() // 暂时不使用
 const userStore = useUserStore()
+const showToast = (message: string) => {
+  uni.showToast({
+    title: message,
+    icon: 'none',
+    duration: 2000
+  })
+}
 const keywords = ref('')
-const autoFocus = ref(true)
 const loading = ref(false)
 const error = ref('')
-const searchType = ref<'local' | 'netease'>('local')
+const searchType = ref<'local' | 'netease'>('netease') // 默认使用网易云搜索
 const songs = ref([])
 const neteaseSongs = ref([])
 const importing = ref<Record<string, boolean>>({})
 
-onLoad(() => {
-  autoFocus.value = true
-})
+// 使用 watch 监听 keywords 变化，确保始终是字符串
+watch(keywords, (newVal) => {
+  if (newVal === undefined || newVal === null) {
+    keywords.value = ''
+  } else {
+    keywords.value = String(newVal)
+  }
+  // 清空之前的错误信息
+  if (error.value) {
+    error.value = ''
+  }
+}, { immediate: true })
 
 function handleSearchSongs() {
-  if (!keywords.value.trim()) {
-    toast.show('请输入搜索关键词')
+  console.log('handleSearchSongs called', keywords.value)
+  const searchKeywords = String(keywords.value || '').trim()
+  console.log('searchKeywords:', searchKeywords)
+  if (!searchKeywords) {
+    showToast('请输入搜索关键词')
     return
   }
   
+  console.log('Starting search, type:', searchType.value)
   loading.value = true
   error.value = ''
   
   if (searchType.value === 'local') {
-    searchLocalSongs(keywords.value).then((res: any) => {
+    console.log('Searching local songs...')
+    searchLocalSongs(searchKeywords).then((res: any) => {
+      console.log('Local search result:', res)
       songs.value = res.songs || []
     }).catch((e: any) => {
+      console.error('Local search error:', e)
       error.value = e?.message || '搜索失败'
     }).finally(() => {
       loading.value = false
     })
   } else {
-    searchNeteaseSongs(keywords.value).then((res: any) => {
-      neteaseSongs.value = res.songs || []
+    console.log('Searching netease songs...')
+    searchNeteaseSongs(searchKeywords).then((res: any) => {
+      console.log('Netease search result:', res)
+      // 后端返回的数据结构: { keywords, songs, total }
+      // HTTP 工具会自动提取 data 字段，所以 res 已经是 { keywords, songs, total }
+      const songs = res?.songs || res || []
+      console.log('Songs array:', songs)
+      console.log('Songs array length:', songs.length)
+      // 使用展开运算符创建新数组，确保响应式更新
+      const songsArray = Array.isArray(songs) ? [...songs] : []
+      neteaseSongs.value = songsArray
+      console.log('neteaseSongs.value after assignment:', neteaseSongs.value)
+      console.log('neteaseSongs.value.length:', neteaseSongs.value.length)
+      console.log('searchType.value:', searchType.value)
+      console.log('Condition check:', searchType.value === 'netease' && neteaseSongs.value.length > 0)
+      // 确保 loading 状态在数据赋值后立即更新
+      loading.value = false
     }).catch((e: any) => {
+      console.error('Netease search error:', e)
       error.value = e?.message || '搜索失败'
+      neteaseSongs.value = []
     }).finally(() => {
       loading.value = false
+      console.log('Finally: loading.value =', loading.value)
+      console.log('Finally: neteaseSongs.value.length =', neteaseSongs.value.length)
+      console.log('Finally: searchType.value =', searchType.value)
+      console.log('Finally: Condition check =', searchType.value === 'netease' && neteaseSongs.value.length > 0)
+      // 强制触发响应式更新
+      nextTick(() => {
+        console.log('nextTick: neteaseSongs.value.length =', neteaseSongs.value.length)
+      })
     })
   }
 }
@@ -86,34 +134,38 @@ async function handleImportFromNetease(neteaseSong: any) {
     })
     
     if (res.imported) {
-      toast.show('导入成功！')
-      // 跳转到歌曲详情页
-      router.push({
-        path: '/pages/song/detail',
-        query: {
-          songId: res.song.song_id,
-          source: 'local',
-          songName: res.song.song_name || '',
-          singer: res.song.singer || '',
-          coverUrl: res.song.cover_url || '',
-        },
-      })
+      showToast('导入成功！')
+      // 延迟跳转，确保用户看到成功提示
+      setTimeout(() => {
+        router.push({
+          path: '/pages/song/detail',
+          query: {
+            songId: res.song.song_id,
+            source: 'local',
+            songName: res.song.song_name || '',
+            singer: res.song.singer || '',
+            coverUrl: res.song.cover_url || '',
+          },
+        })
+      }, 500)
     } else {
-      toast.show(res.message || '歌曲已存在')
+      showToast(res.message || '歌曲已存在')
       // 如果已存在，也跳转到详情页
-      router.push({
-        path: '/pages/song/detail',
-        query: {
-          songId: res.song.song_id,
-          source: 'local',
-          songName: res.song.song_name || '',
-          singer: res.song.singer || '',
-          coverUrl: res.song.cover_url || '',
-        },
-      })
+      setTimeout(() => {
+        router.push({
+          path: '/pages/song/detail',
+          query: {
+            songId: res.song.song_id,
+            source: 'local',
+            songName: res.song.song_name || '',
+            singer: res.song.singer || '',
+            coverUrl: res.song.cover_url || '',
+          },
+        })
+      }, 500)
     }
   } catch (e: any) {
-    toast.show(e?.message || '导入失败')
+    showToast(e?.message || '导入失败')
   } finally {
     importing.value[songId] = false
   }
@@ -122,136 +174,185 @@ async function handleImportFromNetease(neteaseSong: any) {
 function goToCreateSong() {
   router.push('/pages/createSong/createSong')
 }
+
+function handleNeteaseSongClick(song: any) {
+  // 点击歌曲卡片时，可以显示详情或预览
+  // 这里可以添加预览功能
+  console.log('点击了网易云歌曲:', song)
+}
 </script>
 
 <template>
-  <view class="p-4">
-    <!-- 搜索类型切换 -->
-    <view class="mb-3 flex gap-2">
-      <wd-button
-        :type="searchType === 'local' ? 'primary' : 'default'"
-        size="small"
-        @click="searchType = 'local'"
-      >
-        本地歌曲
-      </wd-button>
-      <wd-button
-        :type="searchType === 'netease' ? 'primary' : 'default'"
-        size="small"
-        @click="searchType = 'netease'"
-      >
-        网易云搜索
-      </wd-button>
+  <view class="bg-gray-50 min-h-screen">
+    <view class="bg-white px-4 pt-4 pb-3 border-b border-gray-100">
+      <!-- 搜索类型切换 -->
+      <view class="mb-3 flex gap-2">
+        <button
+          :class="searchType === 'local' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'"
+          class="flex-1 px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity"
+          @click="searchType = 'local'"
+        >
+          本地歌曲
+        </button>
+        <button
+          :class="searchType === 'netease' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'"
+          class="flex-1 px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity"
+          @click="searchType = 'netease'"
+        >
+          网易云搜索
+        </button>
+      </view>
+      
+      <!-- 搜索框 -->
+      <view class="relative">
+        <input
+          v-model="keywords"
+          type="text"
+          :placeholder="searchType === 'local' ? '搜索本地歌曲、歌手' : '搜索网易云歌曲、歌手'"
+          class="w-full px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 focus:bg-white text-sm"
+          @confirm="handleSearchSongs"
+          @keydown.enter="handleSearchSongs"
+        />
+        <view
+          class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-500 text-white text-sm rounded cursor-pointer hover:bg-blue-600 select-none"
+          @click="handleSearchSongs"
+          @tap="handleSearchSongs"
+        >
+          搜索
+        </view>
+      </view>
     </view>
     
-    <!-- 搜索框 -->
-    <wd-search
-      v-model="keywords"
-      :focus="autoFocus"
-      :placeholder="searchType === 'local' ? '搜索本地歌曲、歌手' : '搜索网易云歌曲、歌手'"
-      hide-cancel
-      @search="handleSearchSongs"
-    />
+    <view class="p-4">
     
     <!-- 加载状态 -->
     <template v-if="loading">
-      <view class="p-4 text-center text-gray-500">
-        搜索中...
+      <view class="py-12 text-center">
+        <view class="text-gray-400 text-sm">搜索中...</view>
       </view>
     </template>
     
     <!-- 错误状态 -->
     <template v-else-if="error">
-      <view class="p-4 text-center text-red-500">
-        {{ error }}
+      <view class="py-12 text-center">
+        <view class="text-red-500 text-sm">{{ error }}</view>
       </view>
     </template>
     
     <!-- 本地歌曲搜索结果 -->
     <template v-else-if="searchType === 'local' && songs.length > 0">
-      <view v-for="song in songs" :key="song.song_id" class="mt-2">
-        <wd-card @click="handleSongClick(song)">
-          <view class="align-center flex justify-between">
-            <view class="flex">
-              <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
-              <view class="ml-4">
-                <view class="font-bold">
+      <view v-for="song in songs" :key="song.song_id" class="mb-2">
+        <view class="bg-white rounded-lg shadow-sm p-3 cursor-pointer hover:bg-gray-50" @click="handleSongClick(song)">
+          <view class="flex items-center justify-between">
+            <view class="flex items-center flex-1 min-w-0">
+              <image 
+                :src="song.cover_url || ''" 
+                class="w-14 h-14 rounded-lg flex-shrink-0 object-cover"
+                mode="aspectFill"
+              />
+              <view class="ml-3 flex-1 min-w-0">
+                <view class="font-semibold text-base text-gray-800 truncate">
                   {{ song.song_name }}
                 </view>
-                <view class="text-gray-500">
+                <view class="text-gray-500 text-sm mt-1 truncate">
                   {{ song.singer }}
                 </view>
               </view>
             </view>
-            <view class="w-25 flex flex-row items-center justify-between">
-              <view class="flex flex-row">
-                <view v-for="i in 5" :key="i">
-                  <wd-icon :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" />
-                </view>
+            <view class="flex items-center gap-2 ml-2 flex-shrink-0">
+              <view class="flex items-center">
+                <text 
+                  v-for="i in 5" 
+                  :key="i"
+                  class="text-yellow-400 text-sm"
+                >
+                  {{ i <= Number(song.difficulty || 0) ? '★' : '☆' }}
+                </text>
               </view>
-              <wd-icon name="arrow-right" />
+              <text class="text-gray-400 ml-1">→</text>
             </view>
           </view>
-        </wd-card>
+        </view>
       </view>
     </template>
     
     <!-- 网易云搜索结果 -->
-    <template v-else-if="searchType === 'netease' && neteaseSongs.length > 0">
-      <view v-for="song in neteaseSongs" :key="song.id" class="mt-2">
-        <wd-card>
-          <view class="align-center flex justify-between">
-            <view class="flex flex-1">
-              <wd-img :width="50" :height="50" :src="song.album?.picUrl || song.al?.picUrl || ''" />
-              <view class="ml-4 flex-1">
-                <view class="font-bold">
+    <template v-else-if="searchType === 'netease' && neteaseSongs && neteaseSongs.length > 0">
+      <!-- 调试信息 -->
+      <view class="mb-2 p-2 bg-yellow-100 text-xs">
+        Debug: searchType={{ searchType }}, neteaseSongs.length={{ neteaseSongs.length }}, loading={{ loading }}
+      </view>
+      <view v-for="song in neteaseSongs" :key="song.id" class="mb-2">
+        <view class="bg-white rounded-lg shadow-sm p-3">
+          <view class="flex items-center justify-between">
+            <view class="flex items-center flex-1 min-w-0 pr-2" @click.stop="handleNeteaseSongClick(song)">
+              <image 
+                :src="song.album?.picUrl || song.al?.picUrl || ''" 
+                class="w-14 h-14 rounded-lg flex-shrink-0 object-cover"
+                mode="aspectFill"
+              />
+              <view class="ml-3 flex-1 min-w-0">
+                <view class="font-semibold text-base text-gray-800 truncate">
                   {{ song.name }}
                 </view>
-                <view class="text-gray-500 text-sm">
+                <view class="text-gray-500 text-sm mt-1 truncate">
                   {{ song.artists?.map((a: any) => a.name).join(' / ') || song.ar?.map((a: any) => a.name).join(' / ') }}
                 </view>
-                <view v-if="song.album" class="text-gray-400 text-xs mt-1">
-                  {{ song.album.name || song.al?.name }}
+                <view v-if="song.album || song.al" class="text-gray-400 text-xs mt-1 truncate">
+                  {{ song.album?.name || song.al?.name }}
                 </view>
               </view>
             </view>
-            <view class="ml-2">
-              <wd-button
-                type="primary"
-                size="small"
-                :loading="importing[String(song.id)]"
+            <view class="ml-2 flex-shrink-0">
+              <button
+                class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                :disabled="importing[String(song.id)]"
                 @click.stop="handleImportFromNetease(song)"
               >
-                一键导入
-              </wd-button>
+                <span v-if="!importing[String(song.id)]">一键导入</span>
+                <span v-else>导入中...</span>
+              </button>
             </view>
           </view>
-        </wd-card>
+        </view>
       </view>
     </template>
     
     <!-- 无搜索结果 -->
-    <template v-else-if="keywords">
-      <view class="p-4 text-center text-gray-500">
-        <view>暂无搜索结果</view>
-        <view v-if="searchType === 'netease'" class="mt-4 text-blue-500" @click="goToCreateSong">
-          手动上传歌曲
+    <template v-else-if="keywords && String(keywords).trim()">
+      <view class="py-12 text-center">
+        <view class="text-gray-400 text-sm mb-4">暂无搜索结果</view>
+        <view v-if="searchType === 'netease'">
+          <button 
+            class="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200"
+            @click="goToCreateSong"
+          >
+            手动上传歌曲
+          </button>
         </view>
       </view>
     </template>
     
     <!-- 初始状态 -->
     <template v-else>
-      <view class="p-4 text-center text-gray-500">
-        <view v-if="searchType === 'local'">
-          请输入关键词搜索本地歌曲
-        </view>
-        <view v-else>
-          请输入关键词搜索网易云歌曲，然后点击"一键导入"添加到学习库
+      <view class="py-12 text-center">
+        <view class="text-gray-400 text-sm">
+          <view v-if="searchType === 'local'" class="mb-2">
+            请输入关键词搜索本地歌曲
+          </view>
+          <view v-else class="mb-2">
+            请输入关键词搜索网易云歌曲
+          </view>
+          <view v-if="searchType === 'netease'" class="text-xs mt-2">
+            然后点击"一键导入"添加到学习库
+          </view>
         </view>
       </view>
     </template>
     
-    <wd-toast />
+    </view>
+    
+    <!-- 底部留白 -->
+    <view class="h-24" />
   </view>
 </template>

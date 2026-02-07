@@ -1,59 +1,87 @@
 <template>
-  <view class="bg-white">
-    <view class="mt-2 text-center text-2xl">
-      Nihonnuta
+  <view class="bg-gray-50 min-h-screen">
+    <!-- 顶部标题区域 -->
+    <view class="bg-white pt-6 pb-4 text-center border-b border-gray-100">
+      <view class="text-3xl font-bold text-gray-800">Nihonnuta</view>
+      <view class="text-sm text-gray-500 mt-1">通过日语歌曲学习日语</view>
     </view>
     
     <!-- 添加歌曲入口 -->
     <view class="mt-4 px-4">
-      <wd-card>
-        <view class="flex items-center justify-between">
-          <view class="flex-1">
-            <view class="text-lg font-bold mb-1">添加新歌曲</view>
-            <view class="text-sm text-gray-500">从网易云搜索并一键导入日语歌曲</view>
+      <wd-card class="shadow-sm">
+        <view class="flex items-center justify-between py-3">
+          <view class="flex-1 pr-3 min-w-0">
+            <view class="text-lg font-bold mb-1.5 text-gray-800">添加新歌曲</view>
+            <view class="text-sm text-gray-500 leading-relaxed">从网易云搜索并一键导入日语歌曲</view>
           </view>
-          <wd-button type="primary" size="small" @click="openSearchPage">
+          <wd-button type="primary" size="small" @click="openSearchPage" class="flex-shrink-0">
             去搜索
           </wd-button>
         </view>
       </wd-card>
     </view>
     
-    <wd-search hide-cancel disabled placeholder="点击搜索歌曲（支持网易云搜索）" @click="openSearchPage" />
+    <!-- 搜索框 -->
+    <view class="mt-3 px-4">
+      <wd-search 
+        hide-cancel 
+        disabled 
+        placeholder="点击搜索歌曲（支持网易云搜索）" 
+        @click="openSearchPage"
+        class="cursor-pointer"
+      />
+    </view>
 
-    <view class="mt-4 px-4 flex gap-2">
-      <wd-cell title="单词本" is-link class="flex-1" @click="goToWordbook" />
-      <wd-cell title="语法本" is-link class="flex-1" @click="goToGrammarBook" />
+    <!-- 快捷入口 -->
+    <view class="mt-4 px-4">
+      <view class="bg-white rounded-lg overflow-hidden">
+        <wd-cell title="单词本" is-link @click="goToWordbook" />
+        <view class="h-px bg-gray-100" />
+        <wd-cell title="语法本" is-link @click="goToGrammarBook" />
+      </view>
     </view>
     
-    <wd-cell title="我学过的歌" is-link class="mt-4 px-4" />
+    <!-- 我学过的歌 -->
+    <view class="mt-4 px-4">
+      <view class="text-base font-semibold text-gray-800 mb-2">我学过的歌</view>
+    </view>
     <template v-if="learnedSongs.length > 0">
-      <view v-for="song in learnedSongs" :key="song.song_id">
-        <wd-card class="" @click="handleSongClick(song)">
-          <view class="align-center flex justify-between">
-            <view class="flex">
-              <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
-              <view class="ml-4">
-                <view class="font-bold">
+      <view v-for="song in learnedSongs" :key="song.song_id" class="px-4 mb-2">
+        <wd-card class="shadow-sm" @click="handleSongClick(song)">
+          <view class="flex items-center justify-between py-3">
+            <view class="flex items-center flex-1 min-w-0">
+              <wd-img 
+                :width="56" 
+                :height="56" 
+                :src="song.cover_url || ''" 
+                class="rounded-lg flex-shrink-0"
+                mode="aspectFill"
+              />
+              <view class="ml-3 flex-1 min-w-0">
+                <view class="font-semibold text-base text-gray-800 truncate">
                   {{ song.song_name }}
                 </view>
-                <view class="text-gray-500">
+                <view class="text-gray-500 text-sm mt-1 truncate">
                   {{ song.singer }}
                 </view>
               </view>
             </view>
-            <wd-icon name="arrow-right" />
+            <wd-icon name="arrow-right" class="ml-2 text-gray-400 flex-shrink-0" />
           </view>
         </wd-card>
       </view>
     </template>
     <template v-else>
-      <view class="p-4 text-center text-gray-500">
-        暂无学习记录
+      <view class="px-4 py-8 text-center">
+        <view class="text-gray-400 text-sm">暂无学习记录</view>
+        <view class="text-blue-500 text-sm mt-2" @click="openSearchPage">去添加歌曲</view>
       </view>
     </template>
 
-    <wd-cell title="热门歌曲" is-link class="mt-4 px-4" />
+    <!-- 热门歌曲 -->
+    <view class="mt-6 px-4">
+      <view class="text-base font-semibold text-gray-800 mb-2">热门歌曲</view>
+    </view>
     <template v-if="popularLoading">
       <view class="p-4 text-center text-gray-500">
         加载中...
@@ -65,39 +93,52 @@
       </view>
     </template>
     <template v-else-if="popularSongs.length > 0">
-      <view v-for="song in popularSongs" :key="song.song_id">
-        <wd-card class="" @click="handleSongClick(song)">
-          <view class="align-center flex justify-between">
-            <view class="flex">
-              <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
-              <view class="ml-4">
-                <view class="font-bold">
+      <view v-for="song in popularSongs" :key="song.song_id" class="px-4 mb-2">
+        <wd-card class="shadow-sm" @click="handleSongClick(song)">
+          <view class="flex items-center justify-between py-3">
+            <view class="flex items-center flex-1 min-w-0">
+              <wd-img 
+                :width="56" 
+                :height="56" 
+                :src="song.cover_url || ''" 
+                class="rounded-lg flex-shrink-0"
+                mode="aspectFill"
+              />
+              <view class="ml-3 flex-1 min-w-0">
+                <view class="font-semibold text-base text-gray-800 truncate">
                   {{ song.song_name }}
                 </view>
-                <view class="text-gray-500">
+                <view class="text-gray-500 text-sm mt-1 truncate">
                   {{ song.singer }}
                 </view>
               </view>
             </view>
-            <view class="w-25 flex flex-row items-center justify-between">
-              <view class="flex flex-row">
-                <view v-for="i in 5" :key="i">
-                  <wd-icon :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" />
-                </view>
+            <view class="flex items-center gap-2 ml-2 flex-shrink-0">
+              <view class="flex items-center">
+                <wd-icon 
+                  v-for="i in 5" 
+                  :key="i"
+                  :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" 
+                  class="text-yellow-400"
+                  size="14"
+                />
               </view>
-              <wd-icon name="arrow-right" />
+              <wd-icon name="arrow-right" class="text-gray-400" />
             </view>
           </view>
         </wd-card>
       </view>
     </template>
     <template v-else>
-      <view class="p-4 text-center text-gray-500">
-        暂无热门歌曲
+      <view class="px-4 py-8 text-center">
+        <view class="text-gray-400 text-sm">暂无热门歌曲</view>
       </view>
     </template>
 
-    <wd-cell title="推荐歌曲" is-link class="mt-4 px-4" />
+    <!-- 推荐歌曲 -->
+    <view class="mt-6 px-4">
+      <view class="text-base font-semibold text-gray-800 mb-2">推荐歌曲</view>
+    </view>
     <template v-if="loading">
       <view class="p-4 text-center text-gray-500">
         加载中...
@@ -109,37 +150,50 @@
       </view>
     </template>
     <template v-else-if="songs.length > 0">
-      <view v-for="song in songs" :key="song.song_id">
-        <wd-card class="" @click="handleSongClick(song)">
-          <view class="align-center flex justify-between">
-            <view class="flex">
-              <wd-img :width="50" :height="50" :src="song.cover_url || ''" />
-              <view class="ml-4">
-                <view class="font-bold">
+      <view v-for="song in songs" :key="song.song_id" class="px-4 mb-2">
+        <wd-card class="shadow-sm" @click="handleSongClick(song)">
+          <view class="flex items-center justify-between py-3">
+            <view class="flex items-center flex-1 min-w-0">
+              <wd-img 
+                :width="56" 
+                :height="56" 
+                :src="song.cover_url || ''" 
+                class="rounded-lg flex-shrink-0"
+                mode="aspectFill"
+              />
+              <view class="ml-3 flex-1 min-w-0">
+                <view class="font-semibold text-base text-gray-800 truncate">
                   {{ song.song_name }}
                 </view>
-                <view class="text-gray-500">
+                <view class="text-gray-500 text-sm mt-1 truncate">
                   {{ song.singer }}
                 </view>
               </view>
             </view>
-            <view class="w-25 flex flex-row items-center justify-between">
-              <view class="flex flex-row">
-                <view v-for="i in 5" :key="i">
-                  <wd-icon :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" />
-                </view>
+            <view class="flex items-center gap-2 ml-2 flex-shrink-0">
+              <view class="flex items-center">
+                <wd-icon 
+                  v-for="i in 5" 
+                  :key="i"
+                  :name="i <= Number(song.difficulty || 0) ? 'star-filled' : 'star'" 
+                  class="text-yellow-400"
+                  size="14"
+                />
               </view>
-              <wd-icon name="arrow-right" />
+              <wd-icon name="arrow-right" class="text-gray-400" />
             </view>
           </view>
         </wd-card>
       </view>
     </template>
     <template v-else>
-      <view class="p-4 text-center text-gray-500">
-        暂无推荐歌曲
+      <view class="px-4 py-8 text-center">
+        <view class="text-gray-400 text-sm">暂无推荐歌曲</view>
       </view>
     </template>
+    
+    <!-- 底部留白 -->
+    <view class="h-24" />
   </view>
 </template>
 
@@ -219,20 +273,11 @@ onLoad(async () => {
 
 onShow(() => {
   loadLearnedSongs()
+  // 刷新推荐歌曲和热门歌曲，以便显示新导入的歌曲
+  loadRecommendSongs()
+  loadPopularSongs()
 })
-function handleSearch(value: string) {
-  console.log('搜索', value)
-}
-function handleClear() {
-  console.log('清空搜索内容')
-}
-function handleCancel() {
-  console.log('取消搜索')
-}
-function handleChange(value: string) {
-  console.log('搜索内容变化', value)
-}
-const keyword = ref('')
+
 const songs = ref([])
 const learnedSongs = ref([])
 const popularSongs = ref([])
