@@ -69,3 +69,19 @@ export function createSong(payload: any) {
 export function playSong(id: string) {
   return http.post(`/songs/${id}/play`)
 }
+
+/**
+ * 从网易云导入歌曲
+ */
+export function importSongFromNetease(neteaseSongId: string | number, options?: {
+  difficulty?: number
+  is_public?: boolean
+  create_user?: string | number
+  song_name_cn?: string
+  force?: boolean
+}) {
+  return http.post('/songs/import/netease', {
+    netease_song_id: neteaseSongId,
+    ...options,
+  })
+}
