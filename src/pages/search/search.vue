@@ -67,37 +67,19 @@ function handleSearchSongs() {
       loading.value = false
     })
   } else {
-    console.log('Searching netease songs...')
     searchNeteaseSongs(searchKeywords).then((res: any) => {
-      console.log('Netease search result:', res)
       // 后端返回的数据结构: { keywords, songs, total }
       // HTTP 工具会自动提取 data 字段，所以 res 已经是 { keywords, songs, total }
       const songs = res?.songs || res || []
-      console.log('Songs array:', songs)
-      console.log('Songs array length:', songs.length)
       // 使用展开运算符创建新数组，确保响应式更新
       const songsArray = Array.isArray(songs) ? [...songs] : []
       neteaseSongs.value = songsArray
-      console.log('neteaseSongs.value after assignment:', neteaseSongs.value)
-      console.log('neteaseSongs.value.length:', neteaseSongs.value.length)
-      console.log('searchType.value:', searchType.value)
-      console.log('Condition check:', searchType.value === 'netease' && neteaseSongs.value.length > 0)
-      // 确保 loading 状态在数据赋值后立即更新
       loading.value = false
     }).catch((e: any) => {
       console.error('Netease search error:', e)
-      error.value = e?.message || '搜索失败'
+      error.value = e?.message || '搜索失败，请稍后重试'
       neteaseSongs.value = []
-    }).finally(() => {
       loading.value = false
-      console.log('Finally: loading.value =', loading.value)
-      console.log('Finally: neteaseSongs.value.length =', neteaseSongs.value.length)
-      console.log('Finally: searchType.value =', searchType.value)
-      console.log('Finally: Condition check =', searchType.value === 'netease' && neteaseSongs.value.length > 0)
-      // 强制触发响应式更新
-      nextTick(() => {
-        console.log('nextTick: neteaseSongs.value.length =', neteaseSongs.value.length)
-      })
     })
   }
 }
@@ -128,6 +110,8 @@ async function handleImportFromNetease(neteaseSong: any) {
   
   try {
     const userId = userStore.userInfo?.userId
+    showToast('正在导入，请稍候...')
+    
     const res: any = await importSongFromNetease(neteaseSong.id, {
       create_user: userId,
       is_public: true,
@@ -147,10 +131,10 @@ async function handleImportFromNetease(neteaseSong: any) {
             coverUrl: res.song.cover_url || '',
           },
         })
-      }, 500)
+      }, 800)
     } else {
-      showToast(res.message || '歌曲已存在')
       // 如果已存在，也跳转到详情页
+      showToast(res.message || '歌曲已存在，正在跳转...')
       setTimeout(() => {
         router.push({
           path: '/pages/song/detail',
@@ -162,10 +146,12 @@ async function handleImportFromNetease(neteaseSong: any) {
             coverUrl: res.song.cover_url || '',
           },
         })
-      }, 500)
+      }, 800)
     }
   } catch (e: any) {
-    showToast(e?.message || '导入失败')
+    console.error('导入失败:', e)
+    const errorMessage = e?.message || e?.response?.data?.message || '导入失败，请稍后重试'
+    showToast(errorMessage)
   } finally {
     importing.value[songId] = false
   }
@@ -278,10 +264,6 @@ function handleNeteaseSongClick(song: any) {
     
     <!-- 网易云搜索结果 -->
     <template v-else-if="searchType === 'netease' && neteaseSongs && neteaseSongs.length > 0">
-      <!-- 调试信息 -->
-      <view class="mb-2 p-2 bg-yellow-100 text-xs">
-        Debug: searchType={{ searchType }}, neteaseSongs.length={{ neteaseSongs.length }}, loading={{ loading }}
-      </view>
       <view v-for="song in neteaseSongs" :key="song.id" class="mb-2">
         <view class="bg-white rounded-lg shadow-sm p-3">
           <view class="flex items-center justify-between">

@@ -70,7 +70,8 @@ async function loadLyrics() {
     const res: any = source.value === 'local'
       ? await getProcessedSongById(songId.value, userId)
       : await getProcessedNeteaseLyricById(songId.value)
-    lyrics.value = res?.lines || []
+    // res可能是lines数组，也可能是包含lines的对象
+    lyrics.value = Array.isArray(res) ? res : (res?.lines || res?.data?.lines || [])
     if (source.value === 'local') {
       playSong(songId.value).catch(() => {})
     }
