@@ -222,7 +222,7 @@ async function loadLearnedSongs() {
   const userId = userStore.userInfo?.userId
   if (userId && userId !== -1) {
     try {
-      const res: any = await getRecentLearned(userId, 10)
+      const res: any = await getRecentLearned(10)
       learnedSongs.value = res.songs || []
       return
     }

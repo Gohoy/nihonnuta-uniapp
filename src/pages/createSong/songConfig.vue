@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { useToast } from 'wot-design-uni'
 import { createSong, getNeteaseLyricById, getNeteaseSongDetailById } from '@/api/songs'
 import { useUserStore } from '@/store/user'
-import { getEnvBaseUrl } from '@/utils'
 
 defineOptions({
   name: '',

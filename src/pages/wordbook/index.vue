@@ -263,7 +263,7 @@ async function loadStats() {
   if (!userId || userId === -1) return
   
   try {
-    const res: any = await getWordbookStats(userId)
+    const res: any = await getWordbookStats()
     stats.value = res
   } catch (e: any) {
     console.error('加载统计失败:', e)
@@ -289,7 +289,7 @@ async function loadWords(reset = false) {
   
   try {
     const masterStatus = currentTab.value === 'all' ? undefined : currentTab.value
-    const res: any = await getWordbook(userId, {
+    const res: any = await getWordbook({
       master_status: masterStatus,
       limit,
       offset: offset.value,
@@ -329,7 +329,6 @@ async function updateStatus(word: Word, status: 'unmastered' | 'learning' | 'mas
   
   try {
     await updateWordStatus({
-      user_id: userId,
       word_book_id: word.word_book_id,
       master_status: status,
     })
@@ -352,7 +351,6 @@ async function saveNote() {
   
   try {
     await updateWordNote({
-      user_id: userId,
       word_book_id: currentWord.value.word_book_id,
       note: noteText.value,
     })
@@ -376,7 +374,7 @@ async function handleRemove(word: Word) {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await removeWord(word.word_book_id, userId)
+          await removeWord(word.word_book_id)
           words.value = words.value.filter(w => w.word_book_id !== word.word_book_id)
           await loadStats()
           showDetail.value = false
@@ -397,7 +395,7 @@ async function loadDueCount() {
   const userId = userStore.userInfo?.userId
   if (!userId || userId === -1) return
   try {
-    const res: any = await getDueWords(userId, 1)
+    const res: any = await getDueWords(1)
     dueCount.value = res.total || 0
   } catch {}
 }
