@@ -2,6 +2,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { useTokenStore, useUserStore } from '@/store'
 import { updateUserLevel } from '@/api/login'
+import { authDebugLog } from '@/http/http'
 
 definePage({
   style: {
@@ -12,9 +13,16 @@ definePage({
 const tokenStore = useTokenStore()
 const userStore = useUserStore()
 const isLoggedIn = ref(false)
+const debugInfo = ref('')
 
 function checkLogin() {
-  isLoggedIn.value = tokenStore.updateNowTime().hasLogin
+  const store = tokenStore.updateNowTime()
+  const hasLogin = store.hasLogin
+  const token = store.tokenInfo
+  const expireTime = uni.getStorageSync('accessTokenExpireTime')
+  const persistedToken = uni.getStorageSync('token')
+  debugInfo.value = `hasLogin=${hasLogin}, token=${!!((token as any)?.token)}, expire=${expireTime}, persisted=${!!persistedToken}, now=${Date.now()}\nlog: ${authDebugLog.join(' | ')}`
+  isLoggedIn.value = hasLogin
 }
 
 onShow(() => {
@@ -102,5 +110,7 @@ async function handleLevelChange(level: string) {
 
     <!-- 底部留白 -->
     <view class="h-24" />
+    <!-- Debug -->
+    <view class="p-2 text-xs text-gray-300 break-all">{{ debugInfo }}</view>
   </view>
 </template>

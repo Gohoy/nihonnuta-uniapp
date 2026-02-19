@@ -6,6 +6,14 @@ import { isDoubleTokenMode } from '@/utils'
 import { toLoginPage } from '@/utils/toLoginPage'
 import { ResultEnum } from './tools/enum'
 
+// Debug log for tracing auth issues
+export const authDebugLog: string[] = []
+export function addDebugLog(msg: string) {
+  const ts = new Date().toLocaleTimeString()
+  authDebugLog.push(`[${ts}] ${msg}`)
+  if (authDebugLog.length > 20) authDebugLog.shift()
+}
+
 // 刷新 token 状态管理
 let refreshing = false // 防止重复刷新 token 标识
 let taskQueue: (() => void)[] = [] // 刷新 token 请求队列
@@ -33,6 +41,7 @@ export function http<T>(options: CustomRequestOptions) {
 
         if (isTokenExpired) {
           const tokenStore = useTokenStore()
+          addDebugLog(`401! url=${options.url}, httpStatus=${res.statusCode}, code=${code}`)
           if (!isDoubleTokenMode) {
             // 未启用双token策略，清理用户信息，跳转到登录页
             tokenStore.logout()

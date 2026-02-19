@@ -2,6 +2,7 @@ import type { CustomRequestOptions } from '@/http/types'
 import { useTokenStore } from '@/store'
 import { getEnvBaseUrl } from '@/utils'
 import { stringifyQuery } from './tools/queryString'
+import { addDebugLog } from './http'
 
 // 请求基准地址
 const baseUrl = getEnvBaseUrl()
@@ -52,6 +53,10 @@ const httpInterceptor = {
 
     if (token) {
       options.header.Authorization = `Bearer ${token}`
+    }
+    // Log auth-required requests without token
+    if (!token && (options.url.includes('/user/') || options.url.includes('/learning/'))) {
+      addDebugLog(`NO TOKEN for ${options.url}`)
     }
     return options
   },

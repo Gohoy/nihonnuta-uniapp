@@ -11,6 +11,7 @@ import {
   wxLogin as _wxLogin,
   getWxCode,
 } from '@/api/login'
+import { addDebugLog } from '@/http/http'
 import { isDoubleTokenRes, isSingleTokenRes } from '@/api/types/login'
 import { isDoubleTokenMode } from '@/utils'
 import { useUserStore } from './user'
@@ -51,6 +52,7 @@ export const useTokenStore = defineStore(
     const setTokenInfo = (val: IAuthLoginRes) => {
       updateNowTime()
       tokenInfo.value = val
+      addDebugLog(`setTokenInfo: hasToken=${!!(val as any).token}, expiresIn=${(val as any).expiresIn}`)
 
       // 计算并存储过期时间
       const now = Date.now()
@@ -177,6 +179,7 @@ export const useTokenStore = defineStore(
      * 退出登录 并 删除用户信息
      */
     const logout = async () => {
+      addDebugLog(`logout called! stack=${new Error().stack?.split('\n').slice(1, 3).join(' | ')}`)
       try {
         // TODO 实现自己的退出登录逻辑
         await _logout()
