@@ -12,7 +12,7 @@
         <view class="flex items-center justify-between py-3">
           <view class="flex-1 pr-3 min-w-0">
             <view class="text-lg font-bold mb-1.5 text-gray-800">添加新歌曲</view>
-            <view class="text-sm text-gray-500 leading-relaxed">从网易云搜索并一键导入日语歌曲</view>
+            <view class="text-sm text-gray-500 leading-relaxed">搜索并一键导入日语歌曲</view>
           </view>
           <wd-button type="primary" size="small" @click="openSearchPage" class="flex-shrink-0">
             去搜索
@@ -26,7 +26,7 @@
       <wd-search 
         hide-cancel 
         disabled 
-        placeholder="点击搜索歌曲（支持网易云搜索）" 
+        placeholder="搜索歌曲、歌手" 
         @click="openSearchPage"
         class="cursor-pointer"
       />
@@ -38,6 +38,8 @@
         <wd-cell title="单词本" is-link @click="goToWordbook" />
         <view class="h-px bg-gray-100" />
         <wd-cell title="语法本" is-link @click="goToGrammarBook" />
+        <view class="h-px bg-gray-100" />
+        <wd-cell title="复习" is-link @click="goToReview" />
       </view>
     </view>
     
@@ -199,7 +201,7 @@
 
 <script lang="ts" setup>
 import { onShow } from '@dcloudio/uni-app'
-import { useRouter } from 'vue-router'
+// 小程序不支持 vue-router，使用 uni.navigateTo 替代
 import { getPopularSongs, getSongsPage } from '@/api/songs'
 import { getRecentLearned } from '@/api/learning'
 import { useUserStore } from '@/store/user'
@@ -290,27 +292,24 @@ function handleSongClick(song: any) {
   if (!song?.song_id) {
     return
   }
-  router.push({
-    path: '/pages/song/detail',
-    query: {
-      songId: String(song.song_id),
-      source: 'local',
-      songName: song.song_name || '',
-      singer: song.singer || '',
-      coverUrl: song.cover_url || '',
-    },
+  uni.navigateTo({
+    url: `/pages/song/detail?songId=${song.song_id}&source=local&songName=${encodeURIComponent(song.song_name || '')}&singer=${encodeURIComponent(song.singer || '')}&coverUrl=${encodeURIComponent(song.cover_url || '')}`,
   })
 }
-const router = useRouter()
+
 function openSearchPage() {
-  router.push({ path: '/pages/search/search' })
+  uni.navigateTo({ url: '/pages/search/search' })
 }
 
 function goToWordbook() {
-  router.push({ path: '/pages/wordbook/index' })
+  uni.navigateTo({ url: '/pages/wordbook/index' })
 }
 
 function goToGrammarBook() {
-  router.push({ path: '/pages/grammarbook/index' })
+  uni.navigateTo({ url: '/pages/grammarbook/index' })
+}
+
+function goToReview() {
+  uni.navigateTo({ url: '/pages/review/index?type=word' })
 }
 </script>

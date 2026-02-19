@@ -26,6 +26,14 @@ export function login(loginForm: ILoginForm) {
 }
 
 /**
+ * 用户注册
+ * @param loginForm 注册表单
+ */
+export function register(loginForm: ILoginForm) {
+  return http.post<IAuthLoginRes>('/auth/register', loginForm)
+}
+
+/**
  * 刷新token
  * @param refreshToken 刷新token
  */
@@ -82,4 +90,11 @@ export function getWxCode() {
  */
 export function wxLogin(data: { code: string }) {
   return http.post<IAuthLoginRes>('/auth/wxLogin', data)
+}
+
+/**
+ * 更新用户 JLPT 等级
+ */
+export function updateUserLevel(level: string) {
+  return http.put('/user/level', { level })
 }

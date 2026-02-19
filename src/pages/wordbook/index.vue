@@ -25,6 +25,13 @@
           加载中...
         </view>
       </wd-card>
+
+      <!-- 复习入口 -->
+      <view class="mt-3">
+        <wd-button type="primary" block @click="goToReview">
+          开始复习{{ dueCount > 0 ? ` (${dueCount} 个待复习)` : '' }}
+        </wd-button>
+      </view>
     </view>
 
     <!-- 筛选标签 -->
@@ -68,6 +75,9 @@
             <view v-if="word.song_name" class="text-xs text-gray-400 mt-1">
               来自: {{ word.song_name }} - {{ word.singer }}
             </view>
+            <view v-if="word.example_sentence" class="text-xs text-gray-400 mt-1 italic">
+              「{{ word.example_sentence }}」
+            </view>
           </template>
         </wd-cell>
       </wd-cell-group>
@@ -108,6 +118,9 @@
           </view>
           <view v-if="currentWord.song_name" class="text-sm text-gray-500">
             来自: {{ currentWord.song_name }} - {{ currentWord.singer }}
+          </view>
+          <view v-if="currentWord.example_sentence" class="text-sm text-gray-500 mt-1 italic">
+            例句: 「{{ currentWord.example_sentence }}」
           </view>
         </view>
 
@@ -178,10 +191,12 @@
 </template>
 
 <script lang="ts" setup>
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getWordbook, getWordbookStats, updateWordStatus, removeWord, updateWordNote } from '@/api/wordbook'
+import { getDueWords } from '@/api/review'
 import { useUserStore } from '@/store/user'
 import { useToast } from 'wot-design-uni'
+// 小程序不支持 vue-router
 
 definePage({
   style: {
@@ -199,14 +214,17 @@ interface Word {
   note?: string
   song_name?: string
   singer?: string
+  example_sentence?: string
 }
 
 const userStore = useUserStore()
 const toast = useToast()
+// router removed, using uni.navigateTo
 const loading = ref(true)
 const error = ref('')
 const words = ref<Word[]>([])
 const stats = ref<any>(null)
+const dueCount = ref(0)
 const currentTab = ref('all')
 const offset = ref(0)
 const limit = 20
@@ -375,8 +393,26 @@ function loadMore() {
   loadWords(false)
 }
 
+async function loadDueCount() {
+  const userId = userStore.userInfo?.userId
+  if (!userId || userId === -1) return
+  try {
+    const res: any = await getDueWords(userId, 1)
+    dueCount.value = res.total || 0
+  } catch {}
+}
+
+function goToReview() {
+  uni.navigateTo({ url: '/pages/review/index?type=word' })
+}
+
 onLoad(() => {
   loadStats()
   loadWords(true)
+  loadDueCount()
+})
+
+onShow(() => {
+  loadDueCount()
 })
 </script>

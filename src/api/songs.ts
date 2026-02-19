@@ -85,3 +85,24 @@ export function importSongFromNetease(neteaseSongId: string | number, options?: 
     ...options,
   })
 }
+
+/**
+ * 获取歌曲详情
+ */
+export function getSongById(id: string) {
+  return http.get(`/songs/${id}`)
+}
+
+/**
+ * 获取歌曲音频新鲜预签名 URL
+ */
+export function getSongAudioUrl(id: string) {
+  return http.get(`/songs/${id}/audio`)
+}
+
+/**
+ * 获取歌曲生词（按 JLPT 等级筛选）
+ */
+export function getSongVocabulary(songId: string, level: string, userId?: string | number) {
+  return http.get('/songs/vocabulary', { id: songId, level, user_id: userId })
+}
