@@ -451,7 +451,7 @@ function doReUpload(filePath: string) {
     return
   }
   reUploading.value = true
-  const url = `${getEnvBaseUrl()}/songs/upload`
+  const url = `/songs/upload`
   uni.uploadFile({
     url,
     filePath,
