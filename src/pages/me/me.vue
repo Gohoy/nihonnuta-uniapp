@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { onShow } from '@dcloudio/uni-app'
 import { useTokenStore, useUserStore } from '@/store'
 import { updateUserLevel } from '@/api/login'
 
@@ -10,6 +11,16 @@ definePage({
 
 const tokenStore = useTokenStore()
 const userStore = useUserStore()
+const isLoggedIn = ref(false)
+
+function checkLogin() {
+  isLoggedIn.value = tokenStore.updateNowTime().hasLogin
+}
+
+onShow(() => {
+  checkLogin()
+})
+checkLogin()
 
 function goLogin() {
   uni.navigateTo({ url: '/pages/login/index' })
@@ -17,6 +28,7 @@ function goLogin() {
 
 async function handleLogout() {
   await tokenStore.logout()
+  checkLogin()
   uni.showToast({ title: '已退出登录', icon: 'success' })
 }
 
@@ -34,7 +46,7 @@ async function handleLevelChange(level: string) {
 <template>
   <view class="min-h-screen bg-gray-50">
     <!-- 已登录 -->
-    <view v-if="tokenStore.updateNowTime().hasLogin" class="p-6">
+    <view v-if="isLoggedIn" class="p-6">
       <view class="bg-white rounded-lg p-6 flex flex-col items-center">
         <image
           :src="userStore.userInfo.avatar || '/static/images/default-avatar.png'"
