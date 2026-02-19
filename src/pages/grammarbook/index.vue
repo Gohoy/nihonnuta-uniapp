@@ -258,7 +258,7 @@ async function loadStats() {
   if (!userId || userId === -1) return
   
   try {
-    const res: any = await getGrammarBookStats(userId)
+    const res: any = await getGrammarBookStats()
     stats.value = res
   } catch (e: any) {
     console.error('加载统计失败:', e)
@@ -284,7 +284,7 @@ async function loadGrammars(reset = false) {
   
   try {
     const masterStatus = currentTab.value === 'all' ? undefined : currentTab.value
-    const res: any = await getGrammarBook(userId, {
+    const res: any = await getGrammarBook({
       master_status: masterStatus,
       limit,
       offset: offset.value,
@@ -324,7 +324,6 @@ async function updateStatus(grammar: Grammar, status: 'unmastered' | 'learning' 
   
   try {
     await updateGrammarStatus({
-      user_id: userId,
       grammar_book_id: grammar.grammar_book_id,
       master_status: status,
     })
@@ -347,7 +346,6 @@ async function saveNote() {
   
   try {
     await updateGrammarNote({
-      user_id: userId,
       grammar_book_id: currentGrammar.value.grammar_book_id,
       note: noteText.value,
     })
@@ -371,7 +369,7 @@ async function handleRemove(grammar: Grammar) {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await removeGrammar(grammar.grammar_book_id, userId)
+          await removeGrammar(grammar.grammar_book_id)
           grammars.value = grammars.value.filter(g => g.grammar_book_id !== grammar.grammar_book_id)
           await loadStats()
           showDetail.value = false

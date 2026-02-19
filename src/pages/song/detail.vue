@@ -6,7 +6,6 @@ import { recordLearning } from '@/api/learning'
 import { addWordToBook } from '@/api/wordbook'
 import { addGrammarToBook } from '@/api/grammarbook'
 import { useUserStore } from '@/store/user'
-import { getEnvBaseUrl } from '@/utils'
 
 definePage({
   style: {
@@ -288,7 +287,7 @@ async function loadLyrics() {
       playSong(songId.value).catch(() => {})
     }
     if (userId && userId !== -1) {
-      recordLearning(userId, songId.value).catch(() => {})
+      recordLearning(songId.value).catch(() => {})
     }
     saveLearnedSong()
   }
@@ -348,7 +347,6 @@ async function addToWordbook() {
   try {
     const line = lyrics.value[selectedLineIndex.value]
     await addWordToBook({
-      user_id: userStore.userInfo.userId,
       song_id: songId.value,
       line_num: selectedLineIndex.value,
       token_id: selectedToken.value.token_id,
@@ -402,7 +400,6 @@ async function handleAddGrammar() {
   try {
     const g = selectedGrammar.value
     await addGrammarToBook({
-      user_id: userStore.userInfo.userId,
       song_id: songId.value,
       line_num: lyrics.value.indexOf(selectedGrammarLine.value!),
       grammar_id: g.grammar_id || g.rule_id || 0,
@@ -451,6 +448,8 @@ function doReUpload(filePath: string) {
     return
   }
   reUploading.value = true
+  // 创建者或系统歌曲（create_user=-1）直接更新，其他人走建议审核
+  const canDirectUpdate = isCreator.value || songCreator.value === '-1' || !songCreator.value
   const url = `/songs/upload`
   uni.uploadFile({
     url,
@@ -459,26 +458,32 @@ function doReUpload(filePath: string) {
     formData: {
       songId: songId.value,
       filename: filePath.split('/').pop() || 'audio.mp3',
-      asSuggestion: 'true',
+      ...(!canDirectUpdate ? { asSuggestion: 'true' } : {}),
     },
     success(res) {
       try {
         const data = JSON.parse(res.data)
-        if (data?.data?.path && data?.data?.url) {
-          // Create a suggestion for the audio change
+        if (canDirectUpdate) {
+          // 直接生效
+          audioUrl.value = data?.data?.url || ''
+          hasAudio.value = true
+          destroyAudio()
+          initAudio()
+          uni.showToast({ title: '音频已更新', icon: 'success' })
+        }
+        else if (data?.data?.path && data?.data?.url) {
+          // 走建议审核流程
           submitSuggestion(songId.value, {
             line_index: 0,
             time_ms: 0,
             edits: [{ field: 'audio', old_value: '', new_value: data.data.path }],
             reason: '重新上传音频',
           }).then(() => {
-            // Store locally so uploader can hear it immediately
             try {
               const overrides = JSON.parse(uni.getStorageSync('audioOverrides') || '{}')
               overrides[songId.value] = data.data.url
               uni.setStorageSync('audioOverrides', JSON.stringify(overrides))
             } catch {}
-            // Refresh local audio player
             audioUrl.value = data.data.url
             hasAudio.value = true
             destroyAudio()
@@ -537,7 +542,6 @@ async function addPreStudyWordToBook(word: any) {
   addingPreStudyWord.value = key
   try {
     await addWordToBook({
-      user_id: userStore.userInfo.userId,
       song_id: songId.value,
       line_num: 0,
       token_id: 0,
@@ -566,7 +570,6 @@ async function addAllPreStudyWords() {
   for (const word of words) {
     try {
       await addWordToBook({
-        user_id: userStore.userInfo.userId,
         song_id: songId.value,
         line_num: 0,
         token_id: 0,

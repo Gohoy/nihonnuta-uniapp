@@ -36,10 +36,10 @@ async function loadItems() {
   loading.value = true
   try {
     if (reviewType.value === 'word') {
-      const res: any = await getDueWords(userId)
+      const res: any = await getDueWords()
       items.value = res.words || []
     } else {
-      const res: any = await getDueGrammars(userId)
+      const res: any = await getDueGrammars()
       items.value = res.grammars || []
     }
     if (items.value.length === 0) {
@@ -63,13 +63,11 @@ async function submitAnswer(quality: number) {
   try {
     if (reviewType.value === 'word') {
       await submitWordReview({
-        user_id: userId,
         word_book_id: currentItem.value.word_book_id,
         quality,
       })
     } else {
       await submitGrammarReview({
-        user_id: userId,
         grammar_book_id: currentItem.value.grammar_book_id,
         quality,
       })
