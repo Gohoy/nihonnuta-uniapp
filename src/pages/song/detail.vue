@@ -463,6 +463,15 @@ function doReUpload(filePath: string) {
     success(res) {
       try {
         const data = JSON.parse(res.data)
+        // Handle auth error from uploadFile (not covered by http.ts)
+        if (res.statusCode === 401 || data?.statusCode === 401) {
+          uni.showToast({ title: '请先登录', icon: 'none' })
+          return
+        }
+        if (res.statusCode >= 400 || data?.error) {
+          uni.showToast({ title: data?.error || data?.message || '上传失败', icon: 'none' })
+          return
+        }
         if (canDirectUpdate) {
           // 直接生效
           audioUrl.value = data?.data?.url || ''

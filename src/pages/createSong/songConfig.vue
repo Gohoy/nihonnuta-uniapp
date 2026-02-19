@@ -155,6 +155,14 @@ async function uploadAudio() {
     success(res) {
       try {
         const data = JSON.parse(res.data)
+        if (res.statusCode === 401 || data?.statusCode === 401) {
+          toast.show('请先登录')
+          return
+        }
+        if (res.statusCode >= 400 || data?.error) {
+          toast.show(data?.error || data?.message || '上传失败')
+          return
+        }
         audioUrl.value = data?.data?.url || ''
         toast.show('上传成功')
       }
