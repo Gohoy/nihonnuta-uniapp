@@ -36,7 +36,13 @@ export function http<T>(options: CustomRequestOptions) {
           if (!isDoubleTokenMode) {
             // 未启用双token策略，清理用户信息，跳转到登录页
             tokenStore.logout()
-            toLoginPage()
+            uni.showToast({
+              icon: 'none',
+              title: '请先登录',
+            })
+            setTimeout(() => {
+              toLoginPage()
+            }, 1500)
             return reject(res)
           }
 
