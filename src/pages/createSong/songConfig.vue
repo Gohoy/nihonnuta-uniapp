@@ -144,7 +144,7 @@ async function uploadAudio() {
     return
   }
   uploading.value = true
-  const url = `${getEnvBaseUrl()}/songs/upload`
+  const url = `/songs/upload`
   uni.uploadFile({
     url,
     filePath: audioFilePath.value,
