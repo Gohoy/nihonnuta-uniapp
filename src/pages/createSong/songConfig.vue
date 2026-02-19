@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'wot-design-uni'
 import { createSong, getNeteaseLyricById, getNeteaseSongDetailById } from '@/api/songs'
 import { useUserStore } from '@/store/user'
@@ -17,11 +16,9 @@ definePage({
     navigationBarTitleText: '歌曲配置',
   },
 })
-const route = useRoute()
-const router = useRouter()
 const toast = useToast()
-const mode = ref((route.query.mode as string) || 'netease')
-const songId = ref(route.query.songId as string)
+const mode = ref('')
+const songId = ref('')
 const songLyricObj = ref<any>()
 const lyric = ref<any[]>([])
 const translation = ref<any[]>([])
@@ -40,7 +37,9 @@ const hasLyrics = computed(() => {
   return (lyric.value && lyric.value.length) || (translation.value && translation.value.length) || (romaLyric.value && romaLyric.value.length)
 })
 const showPreview = computed(() => mode.value !== 'manual')
-onMounted(async () => {
+onLoad(async (options) => {
+  mode.value = (options?.mode as string) || 'netease'
+  songId.value = (options?.songId as string) || ''
   if (mode.value === 'manual') {
     if (!songId.value) {
       songId.value = Date.now().toString()
@@ -201,7 +200,7 @@ async function handleSave() {
     }
     await createSong(payload)
     toast.show('保存成功')
-    router.push({ path: '/pages/index/index' })
+    uni.reLaunch({ url: '/pages/index/index' })
   }
   catch (e: any) {
     toast.show(e?.message || '保存失败')

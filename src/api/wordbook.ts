@@ -12,6 +12,7 @@ export function addWordToBook(payload: {
   kana?: string
   pos?: string
   meaning?: string
+  example_sentence?: string
 }) {
   return http.post('/wordbook', payload)
 }

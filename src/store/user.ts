@@ -11,6 +11,7 @@ const userInfoState: IUserInfoRes = {
   username: '',
   nickname: '',
   avatar: '/static/images/default-avatar.png',
+  level: 'N5',
 }
 
 export const useUserStore = defineStore(
@@ -20,8 +21,6 @@ export const useUserStore = defineStore(
     const userInfo = ref<IUserInfoRes>({ ...userInfoState })
     // 设置用户信息
     const setUserInfo = (val: IUserInfoRes) => {
-      console.log('设置用户信息', val)
-      // 若头像为空 则使用默认头像
       if (!val.avatar) {
         val.avatar = userInfoState.avatar
       }
@@ -29,8 +28,9 @@ export const useUserStore = defineStore(
     }
     const setUserAvatar = (avatar: string) => {
       userInfo.value.avatar = avatar
-      console.log('设置用户头像', avatar)
-      console.log('userInfo', userInfo.value)
+    }
+    const setUserLevel = (level: string) => {
+      userInfo.value.level = level
     }
     // 删除用户信息
     const clearUserInfo = () => {
@@ -53,6 +53,7 @@ export const useUserStore = defineStore(
       fetchUserInfo,
       setUserInfo,
       setUserAvatar,
+      setUserLevel,
     }
   },
   {

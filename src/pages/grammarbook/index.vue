@@ -68,6 +68,9 @@
             <view v-if="grammar.song_name" class="text-xs text-gray-400 mt-1">
               来自: {{ grammar.song_name }} - {{ grammar.singer }}
             </view>
+            <view v-if="grammar.example_sentence" class="text-xs text-gray-400 mt-1 italic">
+              「{{ grammar.example_sentence }}」
+            </view>
           </template>
         </wd-cell>
       </wd-cell-group>
@@ -110,6 +113,9 @@
           </view>
           <view v-if="currentGrammar.song_name" class="text-sm text-gray-500 mb-2">
             来自: {{ currentGrammar.song_name }} - {{ currentGrammar.singer }}
+          </view>
+          <view v-if="currentGrammar.example_sentence" class="text-sm text-gray-500 mb-2 italic">
+            例句: 「{{ currentGrammar.example_sentence }}」
           </view>
           <view v-if="currentGrammar.related_token_ids && currentGrammar.related_token_ids.length > 0" class="text-sm text-gray-500">
             相关词: {{ currentGrammar.related_token_ids.join(', ') }}
@@ -205,6 +211,7 @@ interface Grammar {
   related_token_ids?: number[]
   song_name?: string
   singer?: string
+  example_sentence?: string
 }
 
 const userStore = useUserStore()

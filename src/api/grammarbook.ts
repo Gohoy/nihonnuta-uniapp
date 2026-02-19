@@ -13,6 +13,7 @@ export function addGrammarToBook(payload: {
   grammar_relation?: string
   structure_desc?: string
   grammar_desc?: string
+  example_sentence?: string
 }) {
   return http.post('/grammarbook', payload)
 }
