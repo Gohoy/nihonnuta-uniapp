@@ -7,6 +7,7 @@ import { addWordToBook } from '@/api/wordbook'
 import { addGrammarToBook } from '@/api/grammarbook'
 import { useUserStore } from '@/store/user'
 import { useTTS } from '@/hooks/useTTS'
+import { http } from '@/http/http'
 import { getNeteaseLoginStatus, getNeteaseQRKey, getNeteaseQRCode, checkNeteaseQRStatus, downloadSongAudio } from '@/api/neteaseLogin'
 
 definePage({
@@ -763,9 +764,11 @@ onLoad(async (options) => {
   songName.value = decodeURIComponent((options?.songName as string) || '')
   singer.value = decodeURIComponent((options?.singer as string) || '')
   coverUrl.value = decodeURIComponent((options?.coverUrl as string) || '')
-  // Refresh user info to get latest isAdmin status
+  // Refresh user info to get latest isAdmin status (silent, no error toast)
   if (userStore.userInfo?.userId && userStore.userInfo.userId !== -1) {
-    userStore.fetchUserInfo().catch(() => {})
+    http.get('/user/info', undefined, undefined, { hideErrorToast: true }).then((res: any) => {
+      if (res) userStore.setUserInfo(res)
+    }).catch(() => {})
   }
   await loadLyrics()
   // Fetch song creator info
