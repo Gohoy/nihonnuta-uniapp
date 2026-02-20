@@ -205,6 +205,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { getPopularSongs, getSongsPage } from '@/api/songs'
 import { getRecentLearned } from '@/api/learning'
 import { useUserStore } from '@/store/user'
+import { useTokenStore } from '@/store/token'
 
 defineOptions({
   name: 'Home',
@@ -220,7 +221,9 @@ definePage({
 })
 async function loadLearnedSongs() {
   const userId = userStore.userInfo?.userId
-  if (userId && userId !== -1) {
+  const tokenStore = useTokenStore()
+  const hasValidToken = tokenStore.updateNowTime().hasLogin
+  if (userId && userId !== -1 && hasValidToken) {
     try {
       const res: any = await getRecentLearned(10)
       learnedSongs.value = res.songs || []
