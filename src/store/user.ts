@@ -14,6 +14,7 @@ const userInfoState: IUserInfoRes = {
   level: 'N5',
   membershipType: 'free',
   membershipExpireTime: null,
+  isAdmin: false,
 }
 
 export const useUserStore = defineStore(

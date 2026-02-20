@@ -7,6 +7,7 @@ import { addWordToBook } from '@/api/wordbook'
 import { addGrammarToBook } from '@/api/grammarbook'
 import { useUserStore } from '@/store/user'
 import { useTTS } from '@/hooks/useTTS'
+import { getNeteaseLoginStatus, getNeteaseQRKey, getNeteaseQRCode, checkNeteaseQRStatus, downloadSongAudio } from '@/api/neteaseLogin'
 
 definePage({
   style: {
@@ -62,6 +63,90 @@ const { playWord, playingWord } = useTTS()
 // Song creator state
 const songCreator = ref('')
 const isCreator = computed(() => userStore.userInfo?.userId === songCreator.value)
+const isAdmin = computed(() => userStore.userInfo?.isAdmin === true)
+
+// Netease login & audio download state
+const showQRLogin = ref(false)
+const qrImg = ref('')
+const qrKey = ref('')
+const qrStatus = ref('')
+const neteaseNickname = ref('')
+const downloadingAudio = ref(false)
+let qrPollTimer: any = null
+
+async function handleDownloadAudio() {
+  if (!songId.value) return
+  // Check netease login status first
+  try {
+    const status: any = await getNeteaseLoginStatus()
+    if (!status?.loggedIn) {
+      startQRLogin()
+      return
+    }
+    neteaseNickname.value = status.nickname || ''
+  } catch {
+    startQRLogin()
+    return
+  }
+  // Download audio
+  doDownloadAudio()
+}
+
+async function doDownloadAudio() {
+  downloadingAudio.value = true
+  try {
+    await downloadSongAudio(songId.value)
+    uni.showToast({ title: '音频下载成功', icon: 'success' })
+    // Refresh audio URL
+    await loadAudioUrl()
+    if (audioUrl.value) initAudio()
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '下载失败', icon: 'none' })
+  } finally {
+    downloadingAudio.value = false
+  }
+}
+
+async function startQRLogin() {
+  qrStatus.value = '加载中...'
+  showQRLogin.value = true
+  try {
+    const keyRes: any = await getNeteaseQRKey()
+    qrKey.value = keyRes?.key
+    const imgRes: any = await getNeteaseQRCode(qrKey.value)
+    qrImg.value = imgRes?.qrimg || ''
+    qrStatus.value = '请使用网易云音乐APP扫码'
+    startQRPoll()
+  } catch {
+    qrStatus.value = '获取二维码失败'
+  }
+}
+
+function startQRPoll() {
+  stopQRPoll()
+  qrPollTimer = setInterval(async () => {
+    try {
+      const res: any = await checkNeteaseQRStatus(qrKey.value)
+      const code = res?.code
+      if (code === 803) {
+        qrStatus.value = '登录成功'
+        stopQRPoll()
+        showQRLogin.value = false
+        uni.showToast({ title: '网易云登录成功', icon: 'success' })
+        doDownloadAudio()
+      } else if (code === 802) {
+        qrStatus.value = '已扫码，请在手机上确认'
+      } else if (code === 800) {
+        qrStatus.value = '二维码已过期'
+        stopQRPoll()
+      }
+    } catch {}
+  }, 2000)
+}
+
+function stopQRPoll() {
+  if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null }
+}
 
 // Edit suggestion state
 const showEditPopup = ref(false)
@@ -714,6 +799,7 @@ onLoad(async (options) => {
 
 onUnload(() => {
   destroyAudio()
+  stopQRPoll()
 })
 </script>
 
@@ -763,17 +849,23 @@ onUnload(() => {
             <text>{{ formatTime(duration) }}</text>
           </view>
         </view>
-        <view v-if="userStore.userInfo?.userId" class="flex-shrink-0">
+        <view v-if="userStore.userInfo?.userId" class="flex-shrink-0 flex gap-1">
           <wd-button type="info" size="small" :loading="reUploading" @click="chooseAndReUploadAudio">
             重传音频
+          </wd-button>
+          <wd-button v-if="isAdmin" type="warning" size="small" :loading="downloadingAudio" @click="handleDownloadAudio">
+            获取完整音频
           </wd-button>
         </view>
       </view>
     </view>
     <!-- Upload audio when no audio exists (any logged-in user) -->
-    <view v-else-if="userStore.userInfo?.userId" class="mb-4">
+    <view v-else-if="userStore.userInfo?.userId" class="mb-4 flex gap-2">
       <wd-button type="primary" size="small" :loading="reUploading" @click="chooseAndReUploadAudio">
         上传音频
+      </wd-button>
+      <wd-button v-if="isAdmin" type="warning" size="small" :loading="downloadingAudio" @click="handleDownloadAudio">
+        获取完整音频
       </wd-button>
     </view>
 
@@ -1146,6 +1238,18 @@ onUnload(() => {
             </wd-button>
           </view>
         </template>
+      </view>
+    </wd-popup>
+
+    <!-- Netease QR Login Popup (admin only) -->
+    <wd-popup v-model="showQRLogin" position="center" :close-on-click-modal="true" @close="stopQRPoll">
+      <view class="p-6 flex flex-col items-center" style="width: 300px;">
+        <text class="text-lg font-bold mb-3">网易云音乐登录</text>
+        <image v-if="qrImg" :src="qrImg" mode="aspectFit" style="width: 200px; height: 200px;" class="mb-3" />
+        <text class="text-sm text-gray-500 mb-3">{{ qrStatus }}</text>
+        <wd-button v-if="qrStatus === '二维码已过期'" type="primary" size="small" @click="startQRLogin">
+          刷新二维码
+        </wd-button>
       </view>
     </wd-popup>
   </view>
