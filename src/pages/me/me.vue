@@ -2,6 +2,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { useTokenStore, useUserStore } from '@/store'
 import { updateUserLevel } from '@/api/login'
+import { redeemCode } from '@/api/redemption'
 import { authDebugLog } from '@/http/http'
 
 definePage({
@@ -14,6 +15,8 @@ const tokenStore = useTokenStore()
 const userStore = useUserStore()
 const isLoggedIn = ref(false)
 const debugInfo = ref('')
+const redeemInput = ref('')
+const redeeming = ref(false)
 
 function checkLogin() {
   const store = tokenStore.updateNowTime()
@@ -24,6 +27,14 @@ function checkLogin() {
   debugInfo.value = `hasLogin=${hasLogin}, token=${!!((token as any)?.token)}, expire=${expireTime}, persisted=${!!persistedToken}, now=${Date.now()}\nlog: ${authDebugLog.join(' | ')}`
   isLoggedIn.value = hasLogin
 }
+
+const isPremium = computed(() => userStore.userInfo.membershipType === 'premium')
+const membershipExpireText = computed(() => {
+  const t = userStore.userInfo.membershipExpireTime
+  if (!t) return ''
+  const d = new Date(t)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
 
 onShow(() => {
   checkLogin()
@@ -47,6 +58,27 @@ async function handleLevelChange(level: string) {
     uni.showToast({ title: '等级已更新', icon: 'success' })
   } catch {
     uni.showToast({ title: '更新失败', icon: 'none' })
+  }
+}
+
+async function handleRedeem() {
+  const code = redeemInput.value.trim()
+  if (!code) {
+    uni.showToast({ title: '请输入兑换码', icon: 'none' })
+    return
+  }
+  if (redeeming.value) return
+  redeeming.value = true
+  try {
+    const res: any = await redeemCode(code)
+    // Refresh user info to get updated membership
+    await userStore.fetchUserInfo()
+    redeemInput.value = ''
+    uni.showToast({ title: '兑换成功', icon: 'success' })
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '兑换失败', icon: 'none' })
+  } finally {
+    redeeming.value = false
   }
 }
 </script>
@@ -83,6 +115,37 @@ async function handleLevelChange(level: string) {
             @click="handleLevelChange(lvl)"
           >
             {{ lvl }}
+          </view>
+        </view>
+      </view>
+
+      <!-- Membership Status -->
+      <view class="mt-4 bg-white rounded-lg px-4 py-3">
+        <view class="text-sm text-gray-500 mb-2">会员状态</view>
+        <view class="flex items-center gap-2 mb-3">
+          <view
+            class="px-3 py-1 rounded-full text-sm"
+            :class="isPremium ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-100 text-gray-500'"
+          >
+            {{ isPremium ? '会员' : '免费用户' }}
+          </view>
+          <view v-if="isPremium" class="text-xs text-gray-400">
+            到期: {{ membershipExpireText }}
+          </view>
+        </view>
+        <view class="flex gap-2">
+          <input
+            v-model="redeemInput"
+            class="flex-1 border border-gray-200 rounded px-3 py-2 text-sm"
+            placeholder="输入兑换码"
+            maxlength="32"
+          />
+          <view
+            class="px-4 py-2 bg-blue-500 text-white rounded text-sm flex-shrink-0"
+            :class="redeeming ? 'opacity-50' : ''"
+            @click="handleRedeem"
+          >
+            {{ redeeming ? '...' : '兑换' }}
           </view>
         </view>
       </view>

@@ -12,6 +12,8 @@ const userInfoState: IUserInfoRes = {
   nickname: '',
   avatar: '/static/images/default-avatar.png',
   level: 'N5',
+  membershipType: 'free',
+  membershipExpireTime: null,
 }
 
 export const useUserStore = defineStore(

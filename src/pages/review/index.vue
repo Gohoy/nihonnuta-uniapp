@@ -2,6 +2,7 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { getDueWords, submitWordReview, getDueGrammars, submitGrammarReview } from '@/api/review'
 import { useUserStore } from '@/store/user'
+import { useTTS } from '@/hooks/useTTS'
 
 definePage({
   style: {
@@ -10,6 +11,7 @@ definePage({
 })
 
 const userStore = useUserStore()
+const { playWord, playingWord } = useTTS()
 const reviewType = ref<'word' | 'grammar'>('word')
 const items = ref<any[]>([])
 const currentIndex = ref(0)
@@ -148,7 +150,14 @@ onLoad((options) => {
         <!-- Front -->
         <view v-if="!flipped" class="card-face bg-white rounded-xl p-6 shadow-sm min-h-[280px] flex flex-col items-center justify-center">
           <template v-if="reviewType === 'word'">
-            <view class="text-3xl font-bold text-gray-800 mb-3">{{ currentItem.word }}</view>
+            <view class="flex items-center justify-center gap-2 mb-3">
+              <view class="text-3xl font-bold text-gray-800">{{ currentItem.word }}</view>
+              <view
+                class="text-xl"
+                :class="playingWord === currentItem.word ? 'text-blue-500' : 'text-gray-400'"
+                @click.stop="playWord(currentItem.word)"
+              >🔊</view>
+            </view>
             <view class="text-lg text-gray-500 mb-2">{{ currentItem.kana }}</view>
             <view v-if="currentItem.pos" class="text-sm text-gray-400">({{ currentItem.pos }})</view>
           </template>

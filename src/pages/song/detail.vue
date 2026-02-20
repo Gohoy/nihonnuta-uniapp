@@ -6,6 +6,7 @@ import { recordLearning } from '@/api/learning'
 import { addWordToBook } from '@/api/wordbook'
 import { addGrammarToBook } from '@/api/grammarbook'
 import { useUserStore } from '@/store/user'
+import { useTTS } from '@/hooks/useTTS'
 
 definePage({
   style: {
@@ -56,6 +57,7 @@ const selectedLineIndex = ref<number>(-1)
 const showWordDetail = ref(false)
 const addingWord = ref(false)
 const userStore = useUserStore()
+const { playWord, playingWord } = useTTS()
 
 // Song creator state
 const songCreator = ref('')
@@ -871,7 +873,14 @@ onUnload(() => {
     <wd-popup v-model="showWordDetail" position="bottom" :close-on-click-overlay="true">
       <view v-if="selectedToken" class="p-4 bg-white rounded-t-lg">
         <view class="mb-4 flex items-center justify-between">
-          <view class="text-lg font-bold">{{ selectedToken.text }}</view>
+          <view class="flex items-center gap-2">
+            <view class="text-lg font-bold">{{ selectedToken.text }}</view>
+            <view
+              class="text-base"
+              :class="playingWord === selectedToken.text ? 'text-blue-500' : 'text-gray-400'"
+              @click="playWord(selectedToken.text)"
+            >🔊</view>
+          </view>
           <wd-icon name="close" @click="closeWordDetail" />
         </view>
         
@@ -1042,6 +1051,11 @@ onUnload(() => {
                 <view class="flex items-center gap-2">
                   <text class="text-base font-medium">{{ word.word }}</text>
                   <wd-tag v-if="word.pos" type="info" size="small">{{ word.pos }}</wd-tag>
+                  <view
+                    class="flex-shrink-0 text-sm px-1"
+                    :class="playingWord === word.word ? 'text-blue-500' : 'text-gray-400'"
+                    @click.stop="playWord(word.word)"
+                  >🔊</view>
                 </view>
                 <template v-if="preStudyRevealedWords.has(word.base_form || word.word)">
                   <view class="text-sm text-gray-500 mt-1">{{ word.kana }}</view>
@@ -1091,8 +1105,15 @@ onUnload(() => {
             {{ currentPreStudyIndex + 1 }} / {{ preStudyActiveLevelWords.length }}
           </view>
           <view v-if="preStudyActiveLevelWords.length > 0" class="flex flex-col items-center py-6">
-            <view class="text-3xl font-bold mb-3">
-              {{ preStudyActiveLevelWords[currentPreStudyIndex].word }}
+            <view class="flex items-center gap-2 mb-3">
+              <view class="text-3xl font-bold">
+                {{ preStudyActiveLevelWords[currentPreStudyIndex].word }}
+              </view>
+              <view
+                class="text-xl"
+                :class="playingWord === preStudyActiveLevelWords[currentPreStudyIndex].word ? 'text-blue-500' : 'text-gray-400'"
+                @click="playWord(preStudyActiveLevelWords[currentPreStudyIndex].word)"
+              >🔊</view>
             </view>
             <view class="mb-2 flex gap-1">
               <wd-tag type="success" size="small">

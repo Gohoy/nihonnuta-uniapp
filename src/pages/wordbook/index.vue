@@ -100,7 +100,14 @@
     >
       <view v-if="currentWord" class="p-4">
         <view class="mb-4">
-          <view class="text-2xl font-bold mb-2">{{ currentWord.word }}</view>
+          <view class="flex items-center gap-2 mb-2">
+            <view class="text-2xl font-bold">{{ currentWord.word }}</view>
+            <view
+              class="text-lg"
+              :class="playingWord === currentWord.word ? 'text-blue-500' : 'text-gray-400'"
+              @click="playWord(currentWord.word)"
+            >🔊</view>
+          </view>
           <view class="text-lg text-gray-600 mb-2">{{ currentWord.kana }}</view>
           <view class="flex items-center gap-2 mb-2">
             <wd-tag
@@ -196,6 +203,7 @@ import { getWordbook, getWordbookStats, updateWordStatus, removeWord, updateWord
 import { getDueWords } from '@/api/review'
 import { useUserStore } from '@/store/user'
 import { useToast } from 'wot-design-uni'
+import { useTTS } from '@/hooks/useTTS'
 // 小程序不支持 vue-router
 
 definePage({
@@ -219,6 +227,7 @@ interface Word {
 
 const userStore = useUserStore()
 const toast = useToast()
+const { playWord, playingWord } = useTTS()
 // router removed, using uni.navigateTo
 const loading = ref(true)
 const error = ref('')
