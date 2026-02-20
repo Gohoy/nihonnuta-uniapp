@@ -763,6 +763,10 @@ onLoad(async (options) => {
   songName.value = decodeURIComponent((options?.songName as string) || '')
   singer.value = decodeURIComponent((options?.singer as string) || '')
   coverUrl.value = decodeURIComponent((options?.coverUrl as string) || '')
+  // Refresh user info to get latest isAdmin status
+  if (userStore.userInfo?.userId && userStore.userInfo.userId !== -1) {
+    userStore.fetchUserInfo().catch(() => {})
+  }
   await loadLyrics()
   // Fetch song creator info
   if (source.value === 'local') {
