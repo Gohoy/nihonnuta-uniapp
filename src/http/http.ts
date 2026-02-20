@@ -30,112 +30,84 @@ export function http<T>(options: CustomRequestOptions) {
       // 响应成功
       success: async (res) => {
         const rawData = res.data as any
-        // 情况 1：后端没有统一包装（没有 code 字段）
-        if (rawData && typeof rawData === 'object' && !('data' in rawData) && !('result' in rawData)) {
-          return resolve(rawData as T)
-        }
-        const responseData = rawData as IResponse<T>
-        const { code } = responseData
-        // 检查是否是401错误（包括HTTP状态码401或业务码401）
-        const isTokenExpired = res.statusCode === 401 || code === 401
 
-        if (isTokenExpired) {
-          const tokenStore = useTokenStore()
-          addDebugLog(`401! url=${options.url}, httpStatus=${res.statusCode}, code=${code}`)
-          if (!isDoubleTokenMode) {
-            // 未启用双token策略，清理用户信息，跳转到登录页
-            tokenStore.logout()
-            uni.showToast({
-              icon: 'none',
-              title: '请先登录',
-            })
-            setTimeout(() => {
-              toLoginPage()
-            }, 1500)
+        // 1. 先检查 HTTP 错误状态码，防止错误响应被当作成功处理
+        if (res.statusCode >= 400) {
+          const msg = rawData?.message || rawData?.msg || '请求错误'
+
+          // 401 特殊处理：token 过期/无效
+          if (res.statusCode === 401 || rawData?.code === 401) {
+            const tokenStore = useTokenStore()
+            addDebugLog(`401! url=${options.url}`)
+
+            if (!isDoubleTokenMode) {
+              tokenStore.logout()
+              uni.showToast({ icon: 'none', title: '请先登录' })
+              setTimeout(() => { toLoginPage() }, 1500)
+              return reject(res)
+            }
+
+            /* -------- 无感刷新 token ----------- */
+            const { refreshToken } = tokenStore.tokenInfo as IDoubleTokenRes || {}
+            if (refreshToken) {
+              taskQueue.push(() => { resolve(http<T>(options)) })
+            }
+            if (refreshToken && !refreshing) {
+              refreshing = true
+              try {
+                await tokenStore.refreshToken()
+                refreshing = false
+                nextTick(() => {
+                  uni.hideToast()
+                  uni.showToast({ title: 'token 刷新成功', icon: 'none' })
+                })
+                taskQueue.forEach(task => task())
+              }
+              catch {
+                refreshing = false
+                nextTick(() => {
+                  uni.hideToast()
+                  uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
+                })
+                await tokenStore.logout()
+                setTimeout(() => { toLoginPage() }, 2000)
+              }
+              finally {
+                taskQueue = []
+              }
+            }
             return reject(res)
           }
 
-          /* -------- 无感刷新 token ----------- */
-          const { refreshToken } = tokenStore.tokenInfo as IDoubleTokenRes || {}
-          // token 失效的，且有刷新 token 的，才放到请求队列里
-          if (refreshToken) {
-            taskQueue.push(() => {
-              resolve(http<T>(options))
-            })
-          }
-
-          // 如果有 refreshToken 且未在刷新中，发起刷新 token 请求
-          if (refreshToken && !refreshing) {
-            refreshing = true
-            try {
-              // 发起刷新 token 请求（使用 store 的 refreshToken 方法）
-              await tokenStore.refreshToken()
-              // 刷新 token 成功
-              refreshing = false
-              nextTick(() => {
-                // 关闭其他弹窗
-                uni.hideToast()
-                uni.showToast({
-                  title: 'token 刷新成功',
-                  icon: 'none',
-                })
-              })
-              // 将任务队列的所有任务重新请求
-              taskQueue.forEach(task => task())
-            }
-            catch (refreshErr) {
-              console.error('刷新 token 失败:', refreshErr)
-              refreshing = false
-              // 刷新 token 失败，跳转到登录页
-              nextTick(() => {
-                // 关闭其他弹窗
-                uni.hideToast()
-                uni.showToast({
-                  title: '登录已过期，请重新登录',
-                  icon: 'none',
-                })
-              })
-              // 清除用户信息
-              await tokenStore.logout()
-              // 跳转到登录页
-              setTimeout(() => {
-                toLoginPage()
-              }, 2000)
-            }
-            finally {
-              // 不管刷新 token 成功与否，都清空任务队列
-              taskQueue = []
-            }
-          }
-
-          return reject(res)
-        }
-        // 处理其他成功状态（HTTP状态码200-299）
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          // 处理业务逻辑错误
-          if (code !== ResultEnum.Success0 && code !== ResultEnum.Success200) {
-            uni.showToast({
-              icon: 'none',
-              title: responseData.msg || responseData.message || '请求错误',
-            })
-          }
-          if (responseData.result !== undefined) {
-            return resolve(responseData.result)
-          }
-          if (responseData.data !== undefined) {
-            return resolve(responseData.data)
-          }
-          // 一般不会走到这里
-          return resolve(undefined)
+          // 其他 HTTP 错误（400、403、404、500 等）
+          !options.hideErrorToast && uni.showToast({ icon: 'none', title: msg })
+          return reject({ statusCode: res.statusCode, message: msg, data: rawData })
         }
 
-        // 处理其他错误
-        !options.hideErrorToast
-        && uni.showToast({
-          icon: 'none',
-          title: (res.data as any).msg || '请求错误',
-        })
-        reject(res)
+        // 2. HTTP 2xx 成功响应
+        // 情况 A：后端没有统一包装（没有 code/data/result 字段）
+        if (rawData && typeof rawData === 'object' && !('data' in rawData) && !('result' in rawData)) {
+          return resolve(rawData as T)
+        }
+
+        // 情况 B：后端统一包装 { code, data/result, msg }
+        const responseData = rawData as IResponse<T>
+        const { code } = responseData
+
+        // 业务逻辑错误
+        if (code !== ResultEnum.Success0 && code !== ResultEnum.Success200) {
+          uni.showToast({
+            icon: 'none',
+            title: responseData.msg || responseData.message || '请求错误',
+          })
+        }
+        if (responseData.result !== undefined) {
+          return resolve(responseData.result)
+        }
+        if (responseData.data !== undefined) {
+          return resolve(responseData.data)
+        }
+        return resolve(undefined as T)
       },
       // 响应失败
       fail(err) {
