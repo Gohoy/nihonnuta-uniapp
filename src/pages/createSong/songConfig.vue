@@ -180,6 +180,10 @@ async function uploadAudio() {
 }
 
 async function handleSave() {
+  if (!userStore.userInfo?.userId || userStore.userInfo.userId === -1) {
+    toast.show('请先登录')
+    return
+  }
   if (!songName.value.trim()) {
     toast.show('请输入歌名')
     return

@@ -541,6 +541,19 @@ const preStudyActiveLevelWords = computed(() => {
   return preStudyGrouped.value[preStudyActiveLevel.value] || []
 })
 
+// Pre-study: track which words have answer revealed (list mode)
+const preStudyRevealedWords = ref<Set<string>>(new Set())
+
+function togglePreStudyReveal(key: string) {
+  if (preStudyRevealedWords.value.has(key)) {
+    preStudyRevealedWords.value.delete(key)
+  } else {
+    preStudyRevealedWords.value.add(key)
+  }
+  // Trigger reactivity
+  preStudyRevealedWords.value = new Set(preStudyRevealedWords.value)
+}
+
 async function addPreStudyWordToBook(word: any) {
   if (!userStore.userInfo?.userId) {
     uni.showToast({ title: '请先登录', icon: 'none' })
@@ -1023,18 +1036,22 @@ onUnload(() => {
               v-for="(word, wi) in preStudyActiveLevelWords"
               :key="wi"
               class="flex items-center justify-between py-2 px-2 border-b border-gray-100"
+              @click="togglePreStudyReveal(word.base_form || word.word)"
             >
               <view class="flex-1 min-w-0">
                 <view class="flex items-center gap-2">
                   <text class="text-base font-medium">{{ word.word }}</text>
-                  <text class="text-sm text-gray-400">{{ word.kana }}</text>
                   <wd-tag v-if="word.pos" type="info" size="small">{{ word.pos }}</wd-tag>
                 </view>
-                <view class="text-xs text-gray-500 mt-1 truncate">{{ word.meaning || '暂无释义' }}</view>
+                <template v-if="preStudyRevealedWords.has(word.base_form || word.word)">
+                  <view class="text-sm text-gray-500 mt-1">{{ word.kana }}</view>
+                  <view class="text-xs text-gray-500 mt-0.5 truncate">{{ word.meaning || '暂无释义' }}</view>
+                </template>
+                <view v-else class="text-xs text-gray-300 mt-1">点击查看答案</view>
               </view>
               <view
                 class="flex-shrink-0 ml-2 px-2 py-1 rounded text-xs bg-blue-50 text-blue-600 active:bg-blue-100"
-                @click="addPreStudyWordToBook(word)"
+                @click.stop="addPreStudyWordToBook(word)"
               >
                 <text v-if="addingPreStudyWord === (word.base_form || word.word)">...</text>
                 <text v-else>+ 生词本</text>
@@ -1077,9 +1094,6 @@ onUnload(() => {
             <view class="text-3xl font-bold mb-3">
               {{ preStudyActiveLevelWords[currentPreStudyIndex].word }}
             </view>
-            <view class="text-lg text-gray-500 mb-2">
-              {{ preStudyActiveLevelWords[currentPreStudyIndex].kana }}
-            </view>
             <view class="mb-2 flex gap-1">
               <wd-tag type="success" size="small">
                 {{ preStudyLevelLabel(preStudyActiveLevelWords[currentPreStudyIndex].jlpt_level) }}
@@ -1092,12 +1106,13 @@ onUnload(() => {
               class="mt-4 px-6 py-3 bg-gray-100 rounded-lg text-gray-400 text-sm"
               @click="showPreStudyMeaning = true"
             >
-              点击查看释义
+              点击查看答案
             </view>
-            <view v-else class="mt-4 text-base text-gray-700 text-center">
-              {{ preStudyActiveLevelWords[currentPreStudyIndex].meaning || '暂无释义' }}
+            <view v-else class="mt-4 text-center">
+              <view class="text-lg text-gray-600 mb-1">{{ preStudyActiveLevelWords[currentPreStudyIndex].kana }}</view>
+              <view class="text-base text-gray-700">{{ preStudyActiveLevelWords[currentPreStudyIndex].meaning || '暂无释义' }}</view>
             </view>
-            <view v-if="preStudyActiveLevelWords[currentPreStudyIndex].example" class="mt-3 text-xs text-gray-400 italic text-center">
+            <view v-if="showPreStudyMeaning && preStudyActiveLevelWords[currentPreStudyIndex].example" class="mt-3 text-xs text-gray-400 italic text-center">
               「{{ preStudyActiveLevelWords[currentPreStudyIndex].example }}」
             </view>
           </view>

@@ -73,10 +73,16 @@ async function handleImportSong(song: any) {
     return
   }
 
+  // Check login before importing
+  const userId = userStore.userInfo?.userId
+  if (!userId || userId === -1) {
+    uni.showToast({ title: '请先登录后再导入歌曲', icon: 'none' })
+    return
+  }
+
   importing.value[songId] = true
 
   try {
-    const userId = userStore.userInfo?.userId
     showToast('正在导入，请稍候...')
 
     const res: any = await importSongFromNetease(song.id, {
