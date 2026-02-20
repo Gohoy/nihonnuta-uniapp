@@ -3,6 +3,18 @@ import { getTTSUrl } from '@/api/tts'
 
 const playingWord = ref('')
 
+// H5 platform: use native Audio API (more reliable, avoids uni-app wrapper issues)
+function playWithHtmlAudio(url: string, onEnded: () => void, onError: () => void): any {
+  const audio = new Audio(url)
+  audio.onended = onEnded
+  audio.onerror = onError
+  audio.play().catch(onError)
+  return {
+    stop() { audio.pause(); audio.currentTime = 0 },
+    destroy() { audio.src = '' },
+  }
+}
+
 export function useTTS() {
   let audioCtx: any = null
 
@@ -31,23 +43,23 @@ export function useTTS() {
       const url = res?.url
       if (!url) return
 
-      // Destroy previous context and create fresh one each time
       destroyCtx()
       playingWord.value = word
 
+      const onEnded = () => { playingWord.value = '' }
+      const onError = () => { playingWord.value = '' }
+
+      // #ifdef H5
+      audioCtx = playWithHtmlAudio(url, onEnded, onError)
+      // #endif
+
+      // #ifndef H5
       audioCtx = uni.createInnerAudioContext()
+      audioCtx.autoplay = true
+      audioCtx.onEnded(onEnded)
+      audioCtx.onError(onError)
       audioCtx.src = url
-      audioCtx.onCanplay(() => {
-        audioCtx?.play()
-      })
-      audioCtx.onEnded(() => {
-        playingWord.value = ''
-      })
-      audioCtx.onError(() => {
-        playingWord.value = ''
-      })
-      // Also try play directly (works on some platforms without waiting for canplay)
-      audioCtx.play()
+      // #endif
     } catch {
       playingWord.value = ''
     }
