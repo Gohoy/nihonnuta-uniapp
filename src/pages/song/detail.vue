@@ -54,6 +54,9 @@ const showTranslate = ref(true)
 const showRoma = ref(false)
 const showGrammar = ref(true)
 const showFurigana = ref(true)
+const showSettings = ref(false)
+const playbackRate = ref(1)
+const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const selectedToken = ref<Token | null>(null)
 const selectedLineIndex = ref<number>(-1)
 const showWordDetail = ref(false)
@@ -65,6 +68,7 @@ const { playWord, playingWord, loadingWord } = useTTS()
 const songCreator = ref('')
 const isCreator = computed(() => userStore.userInfo?.userId === songCreator.value)
 const isAdmin = computed(() => userStore.userInfo?.isAdmin === true)
+const isPremium = computed(() => userStore.userInfo?.membershipType === 'premium')
 
 // Netease login & audio download state
 const showQRLogin = ref(false)
@@ -264,36 +268,41 @@ function initAudio() {
     seek(t: number) { audio.currentTime = t },
     stop() { audio.pause(); audio.currentTime = 0 },
     destroy() { audio.src = ''; clearInterval(pollInterval) },
+    setRate(r: number) { audio.playbackRate = r },
     get duration() { return audio.duration || 0 },
     get currentTime() { return audio.currentTime || 0 },
     set src(v: string) { audio.src = v },
   }
+  audio.playbackRate = playbackRate.value
   return
   // #endif
 
   // Non-H5: use uni API
-  audioContext = uni.createInnerAudioContext()
-  audioContext.src = audioUrl.value
-  audioContext.onCanplay(() => {
-    duration.value = audioContext.duration || 0
+  const ctx = uni.createInnerAudioContext()
+  ctx.src = audioUrl.value
+  ctx.playbackRate = playbackRate.value
+  ctx.onCanplay(() => {
+    duration.value = ctx.duration || 0
   })
-  audioContext.onTimeUpdate(() => {
+  ctx.onTimeUpdate(() => {
     // Throttle to ~4 updates/sec
     const now = Date.now()
     if (now - lastTimeUpdate < 250) return
     lastTimeUpdate = now
-    currentTime.value = audioContext.currentTime || 0
-    duration.value = audioContext.duration || 0
+    currentTime.value = ctx.currentTime || 0
+    duration.value = ctx.duration || 0
     updateCurrentLine()
   })
-  audioContext.onEnded(() => {
+  ctx.onEnded(() => {
     isPlaying.value = false
     currentLineIndex.value = -1
   })
-  audioContext.onError(() => {
+  ctx.onError(() => {
     isPlaying.value = false
     hasAudio.value = false
   })
+  audioContext = ctx
+  audioContext.setRate = (r: number) => { ctx.playbackRate = r }
 }
 
 function togglePlay() {
@@ -304,6 +313,13 @@ function togglePlay() {
   } else {
     audioContext.play()
     isPlaying.value = true
+  }
+}
+
+function setPlaybackRate(rate: number) {
+  playbackRate.value = rate
+  if (audioContext?.setRate) {
+    audioContext.setRate(rate)
   }
 }
 
@@ -320,14 +336,6 @@ function pauseAudio() {
   if (!audioContext) return
   audioContext.pause()
   isPlaying.value = false
-}
-
-function seekTo(e: any) {
-  if (!audioContext || !duration.value) return
-  const ratio = e.detail?.value / 100 || 0
-  const time = ratio * duration.value
-  audioContext.seek(time)
-  currentTime.value = time
 }
 
 // Binary search for current lyric line based on time (ms)
@@ -894,62 +902,29 @@ document.addEventListener('keydown', handleKeydown)
 </script>
 
 <template>
-  <view class="p-4">
+  <view class="p-4 pb-20">
     <view class="mb-3 flex items-center justify-between">
       <view class="text-lg font-bold">歌词学习</view>
-      <view class="flex items-center gap-2 flex-wrap">
-        <view class="flex items-center">
-          <text class="mr-1 text-xs text-gray-600">假名</text>
-          <wd-switch v-model="showFurigana" size="20" />
-        </view>
-        <view class="flex items-center">
-          <text class="mr-1 text-xs text-gray-600">翻译</text>
-          <wd-switch v-model="showTranslate" size="20" />
-        </view>
-        <view class="flex items-center">
-          <text class="mr-1 text-xs text-gray-600">罗马音</text>
-          <wd-switch v-model="showRoma" size="20" />
-        </view>
-        <view class="flex items-center">
-          <text class="mr-1 text-xs text-gray-600">语法</text>
-          <wd-switch v-model="showGrammar" size="20" />
-        </view>
+      <view v-if="!hasAudio" class="w-8 h-8 flex items-center justify-center text-gray-500" @click="showSettings = true">
+        <text class="text-lg">⚙</text>
       </view>
     </view>
 
-    <!-- Audio Player (sticky) -->
-    <view v-if="hasAudio" class="audio-player bg-white rounded-lg p-3 mb-4 shadow-sm sticky top-0 z-10">
-      <view class="flex items-center gap-3">
-        <view class="play-btn w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0" @click="togglePlay">
-          <text class="text-white text-lg">{{ isPlaying ? '⏸' : '▶' }}</text>
-        </view>
-        <view class="flex-1">
-          <slider
-            :value="duration ? (currentTime / duration) * 100 : 0"
-            :min="0"
-            :max="100"
-            :step="0.1"
-            activeColor="#3b82f6"
-            backgroundColor="#e5e7eb"
-            block-size="12"
-            @change="seekTo"
-          />
-          <view class="flex justify-between text-xs text-gray-400 mt-1">
-            <text>{{ formatTime(currentTime) }}</text>
-            <text>{{ formatTime(duration) }}</text>
-          </view>
-        </view>
-        <view v-if="userStore.userInfo?.userId" class="flex-shrink-0 flex gap-1">
-          <wd-button type="info" size="small" :loading="reUploading" @click="chooseAndReUploadAudio">
-            重传音频
-          </wd-button>
-          <wd-button v-if="isAdmin" type="warning" size="small" :loading="downloadingAudio" @click="handleDownloadAudio">
-            获取完整音频
-          </wd-button>
-        </view>
+    <!-- Audio Player (bottom fixed bar) -->
+    <view v-if="hasAudio" class="audio-bar fixed left-0 right-0 bottom-0 z-50 bg-white border-t border-gray-200 px-4 py-2 flex items-center gap-3">
+      <view class="play-btn w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0" @click="togglePlay">
+        <text class="text-white text-lg">{{ isPlaying ? '⏸' : '▶' }}</text>
+      </view>
+      <view class="flex-1 min-w-0">
+        <view class="text-sm text-gray-700 truncate">{{ songName || '未知歌曲' }}</view>
+        <view class="text-xs text-gray-400">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</view>
+      </view>
+      <view v-if="playbackRate !== 1" class="text-xs text-blue-500 flex-shrink-0">{{ playbackRate }}x</view>
+      <view class="flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-500" @click="showSettings = true">
+        <text class="text-lg">⚙</text>
       </view>
     </view>
-    <!-- Upload audio when no audio exists (any logged-in user) -->
+    <!-- No audio: upload buttons -->
     <view v-else-if="userStore.userInfo?.userId" class="mb-4 flex gap-2">
       <wd-button type="primary" size="small" :loading="reUploading" @click="chooseAndReUploadAudio">
         上传音频
@@ -1110,6 +1085,7 @@ document.addEventListener('keydown', handleKeydown)
         
         <view class="flex gap-2 mt-4">
           <wd-button
+            v-if="isPremium"
             type="primary"
             block
             :loading="addingWord"
@@ -1117,6 +1093,9 @@ document.addEventListener('keydown', handleKeydown)
           >
             添加到单词本
           </wd-button>
+          <view v-else class="w-full text-center text-sm text-gray-400 py-2">
+            会员可使用生词本功能
+          </view>
         </view>
       </view>
     </wd-popup>
@@ -1180,9 +1159,12 @@ document.addEventListener('keydown', handleKeydown)
         <view v-if="selectedGrammarLine?.original" class="mb-3 text-sm text-gray-500 bg-gray-50 p-2 rounded">
           例句: {{ selectedGrammarLine.original }}
         </view>
-        <wd-button type="primary" block :loading="addingGrammar" @click="handleAddGrammar">
+        <wd-button v-if="isPremium" type="primary" block :loading="addingGrammar" @click="handleAddGrammar">
           添加到语法本
         </wd-button>
+        <view v-else class="w-full text-center text-sm text-gray-400 py-2">
+          会员可使用语法本功能
+        </view>
       </view>
     </wd-popup>
 
@@ -1255,6 +1237,7 @@ document.addEventListener('keydown', handleKeydown)
                 <view v-else class="text-xs text-gray-300 mt-1">点击查看答案</view>
               </view>
               <view
+                v-if="isPremium"
                 class="flex-shrink-0 ml-2 px-2 py-1 rounded text-xs bg-blue-50 text-blue-600 active:bg-blue-100"
                 @click.stop="addPreStudyWordToBook(word)"
               >
@@ -1266,7 +1249,7 @@ document.addEventListener('keydown', handleKeydown)
 
           <!-- Batch add button -->
           <view class="mt-3 flex gap-2">
-            <wd-button type="info" size="small" @click="addAllPreStudyWords">
+            <wd-button v-if="isPremium" type="info" size="small" @click="addAllPreStudyWords">
               一键添加本级全部
             </wd-button>
             <wd-button type="primary" size="small" @click="startCardMode">
@@ -1329,7 +1312,7 @@ document.addEventListener('keydown', handleKeydown)
             </view>
           </view>
           <view class="flex gap-2 mt-2">
-            <wd-button type="info" size="small" @click="addPreStudyWordToBook(preStudyActiveLevelWords[currentPreStudyIndex])">
+            <wd-button v-if="isPremium" type="info" size="small" @click="addPreStudyWordToBook(preStudyActiveLevelWords[currentPreStudyIndex])">
               + 生词本
             </wd-button>
             <wd-button type="primary" block @click="nextPreStudyWord">
@@ -1351,15 +1334,72 @@ document.addEventListener('keydown', handleKeydown)
         </wd-button>
       </view>
     </wd-popup>
+
+    <!-- Settings popup -->
+    <wd-popup v-model="showSettings" position="bottom" :close-on-click-overlay="true">
+      <view class="p-4 bg-white rounded-t-lg">
+        <view class="mb-4 flex items-center justify-between">
+          <text class="text-lg font-bold">播放设置</text>
+          <wd-icon name="close" @click="showSettings = false" />
+        </view>
+        <!-- Playback speed -->
+        <view class="mb-4">
+          <view class="text-sm text-gray-500 mb-2">播放速度</view>
+          <view class="flex gap-2 flex-wrap">
+            <view
+              v-for="rate in playbackRates"
+              :key="rate"
+              class="px-3 py-1.5 rounded text-sm"
+              :class="playbackRate === rate ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'"
+              @click="setPlaybackRate(rate)"
+            >
+              {{ rate }}x
+            </view>
+          </view>
+        </view>
+        <!-- Display toggles -->
+        <view class="mb-3 flex items-center justify-between">
+          <text class="text-sm text-gray-700">显示假名</text>
+          <wd-switch v-model="showFurigana" size="20" />
+        </view>
+        <view class="mb-3 flex items-center justify-between">
+          <text class="text-sm text-gray-700">显示翻译</text>
+          <wd-switch v-model="showTranslate" size="20" />
+        </view>
+        <view class="mb-3 flex items-center justify-between">
+          <text class="text-sm text-gray-700">显示罗马音</text>
+          <wd-switch v-model="showRoma" size="20" />
+        </view>
+        <view class="mb-3 flex items-center justify-between">
+          <text class="text-sm text-gray-700">显示语法</text>
+          <wd-switch v-model="showGrammar" size="20" />
+        </view>
+        <!-- Audio management (logged-in users) -->
+        <view v-if="hasAudio && userStore.userInfo?.userId" class="mt-4 pt-4 border-t border-gray-100">
+          <view class="text-sm text-gray-500 mb-2">音频管理</view>
+          <view class="flex gap-2">
+            <wd-button type="info" size="small" :loading="reUploading" @click="chooseAndReUploadAudio">
+              重传音频
+            </wd-button>
+            <wd-button v-if="isAdmin" type="warning" size="small" :loading="downloadingAudio" @click="handleDownloadAudio">
+              获取完整音频
+            </wd-button>
+          </view>
+        </view>
+      </view>
+    </wd-popup>
   </view>
 </template>
 
 <style scoped>
-/* Desktop: keyboard shortcut hint */
+.audio-bar {
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
 @media (min-width: 768px) {
-  .audio-player {
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  .audio-bar {
+    max-width: 960px;
+    margin: 0 auto;
+    border-radius: 12px 12px 0 0;
   }
 }
 </style>
