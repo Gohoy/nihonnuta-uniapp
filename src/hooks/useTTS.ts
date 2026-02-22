@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { getTTSUrl } from '@/api/tts'
 
 const playingWord = ref('')
+const loadingWord = ref('')
 
 // H5 platform: use native Audio API (more reliable, avoids uni-app wrapper issues)
 function playWithHtmlAudio(url: string, onEnded: () => void, onError: () => void): any {
@@ -28,7 +29,7 @@ export function useTTS() {
     }
   }
 
-  async function playWord(word: string) {
+  async function playWord(word: string, kana?: string) {
     if (!word) return
 
     // Toggle off if same word
@@ -39,11 +40,15 @@ export function useTTS() {
     }
 
     try {
-      const res: any = await getTTSUrl(word)
+      loadingWord.value = word
+      // Use kana for TTS to avoid kanji multi-reading issues
+      const ttsText = kana || word
+      const res: any = await getTTSUrl(ttsText)
       const url = res?.url
-      if (!url) return
+      if (!url) { loadingWord.value = ''; return }
 
       destroyCtx()
+      loadingWord.value = ''
       playingWord.value = word
 
       const onEnded = () => { playingWord.value = '' }
@@ -61,9 +66,10 @@ export function useTTS() {
       audioCtx.src = url
       // #endif
     } catch {
+      loadingWord.value = ''
       playingWord.value = ''
     }
   }
 
-  return { playWord, playingWord }
+  return { playWord, playingWord, loadingWord }
 }

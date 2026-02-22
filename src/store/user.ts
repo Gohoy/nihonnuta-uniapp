@@ -12,6 +12,7 @@ const userInfoState: IUserInfoRes = {
   nickname: '',
   avatar: '/static/images/default-avatar.png',
   level: 'N5',
+  role: 'user',
   membershipType: 'free',
   membershipExpireTime: null,
   isAdmin: false,

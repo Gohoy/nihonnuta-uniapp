@@ -22,4 +22,8 @@ onHide(() => {
 </script>
 
 <style lang="scss">
+/* Prevent double-tap zoom on mobile */
+* {
+  touch-action: manipulation;
+}
 </style>

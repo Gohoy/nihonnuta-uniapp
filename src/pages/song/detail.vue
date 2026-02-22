@@ -59,7 +59,7 @@ const selectedLineIndex = ref<number>(-1)
 const showWordDetail = ref(false)
 const addingWord = ref(false)
 const userStore = useUserStore()
-const { playWord, playingWord } = useTTS()
+const { playWord, playingWord, loadingWord } = useTTS()
 
 // Song creator state
 const songCreator = ref('')
@@ -98,9 +98,17 @@ async function doDownloadAudio() {
   try {
     await downloadSongAudio(songId.value)
     uni.showToast({ title: '音频下载成功', icon: 'success' })
-    // Refresh audio URL
-    await loadAudioUrl()
-    if (audioUrl.value) initAudio()
+    // Destroy old audio and fetch fresh URL bypassing all caches
+    destroyAudio()
+    const ts = Date.now()
+    const res: any = await http.get(`/songs/${songId.value}/audio`, { _t: ts })
+    if (res?.url) {
+      // Also bust browser audio cache by appending timestamp to audio URL
+      const sep = res.url.includes('?') ? '&' : '?'
+      audioUrl.value = res.url + sep + '_t=' + ts
+      hasAudio.value = true
+      initAudio()
+    }
   } catch (e: any) {
     uni.showToast({ title: e?.message || '下载失败', icon: 'none' })
   } finally {
@@ -200,6 +208,7 @@ const duration = ref(0)
 const currentLineIndex = ref(-1)
 let audioContext: any = null
 let timeUpdateTimer: any = null
+let lastTimeUpdate = 0
 
 async function loadAudioUrl() {
   if (!songId.value) return
@@ -213,19 +222,10 @@ async function loadAudioUrl() {
     }
   } catch {}
   try {
-    if (source.value === 'local') {
-      const res: any = await getSongAudioUrl(songId.value)
-      if (res?.url) {
-        audioUrl.value = res.url
-        hasAudio.value = true
-      }
-    } else {
-      // Netease songs use external URL
-      const res: any = await getSongById(songId.value)
-      if (res?.audio_url) {
-        audioUrl.value = res.audio_url
-        hasAudio.value = true
-      }
+    const res: any = await getSongAudioUrl(songId.value)
+    if (res?.url) {
+      audioUrl.value = res.url
+      hasAudio.value = true
     }
   } catch {
     hasAudio.value = false
@@ -234,12 +234,54 @@ async function loadAudioUrl() {
 
 function initAudio() {
   if (!audioUrl.value) return
+
+  // #ifdef H5
+  // Use native Audio API on H5 for better performance
+  const audio = new Audio(audioUrl.value)
+  audio.preload = 'auto'
+  audio.addEventListener('canplay', () => {
+    duration.value = audio.duration || 0
+  })
+  audio.addEventListener('ended', () => {
+    isPlaying.value = false
+    currentLineIndex.value = -1
+  })
+  audio.addEventListener('error', () => {
+    isPlaying.value = false
+    hasAudio.value = false
+  })
+  // Throttled time update via polling (4 times/sec)
+  const pollInterval = setInterval(() => {
+    if (!audio.paused) {
+      currentTime.value = audio.currentTime || 0
+      if (!duration.value) duration.value = audio.duration || 0
+      updateCurrentLine()
+    }
+  }, 250)
+  audioContext = {
+    play() { audio.play().catch(() => {}) },
+    pause() { audio.pause() },
+    seek(t: number) { audio.currentTime = t },
+    stop() { audio.pause(); audio.currentTime = 0 },
+    destroy() { audio.src = ''; clearInterval(pollInterval) },
+    get duration() { return audio.duration || 0 },
+    get currentTime() { return audio.currentTime || 0 },
+    set src(v: string) { audio.src = v },
+  }
+  return
+  // #endif
+
+  // Non-H5: use uni API
   audioContext = uni.createInnerAudioContext()
   audioContext.src = audioUrl.value
   audioContext.onCanplay(() => {
     duration.value = audioContext.duration || 0
   })
   audioContext.onTimeUpdate(() => {
+    // Throttle to ~4 updates/sec
+    const now = Date.now()
+    if (now - lastTimeUpdate < 250) return
+    lastTimeUpdate = now
     currentTime.value = audioContext.currentTime || 0
     duration.value = audioContext.duration || 0
     updateCurrentLine()
@@ -642,6 +684,16 @@ function togglePreStudyReveal(key: string) {
   preStudyRevealedWords.value = new Set(preStudyRevealedWords.value)
 }
 
+// Generate a unique token_id from word text for pre-study words
+function wordHash(str: string): number {
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i)
+    h |= 0
+  }
+  return Math.abs(h)
+}
+
 async function addPreStudyWordToBook(word: any) {
   if (!userStore.userInfo?.userId) {
     uni.showToast({ title: '请先登录', icon: 'none' })
@@ -653,8 +705,8 @@ async function addPreStudyWordToBook(word: any) {
   try {
     await addWordToBook({
       song_id: songId.value,
-      line_num: 0,
-      token_id: 0,
+      line_num: -1,
+      token_id: wordHash(word.word),
       word: word.word,
       kana: word.kana,
       pos: word.pos,
@@ -681,8 +733,8 @@ async function addAllPreStudyWords() {
     try {
       await addWordToBook({
         song_id: songId.value,
-        line_num: 0,
-        token_id: 0,
+        line_num: -1,
+        token_id: wordHash(word.word),
         word: word.word,
         kana: word.kana,
         pos: word.pos,
@@ -807,7 +859,38 @@ onLoad(async (options) => {
 onUnload(() => {
   destroyAudio()
   stopQRPoll()
+  // #ifdef H5
+  document.removeEventListener('keydown', handleKeydown)
+  // #endif
 })
+
+// #ifdef H5
+function handleKeydown(e: KeyboardEvent) {
+  // Ignore if user is typing in an input
+  const tag = (e.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+  if (e.code === 'Space') {
+    e.preventDefault()
+    togglePlay()
+  } else if (e.code === 'ArrowLeft') {
+    e.preventDefault()
+    if (audioContext) {
+      const t = Math.max(0, (audioContext.currentTime || currentTime.value) - 5)
+      audioContext.seek(t)
+      currentTime.value = t
+    }
+  } else if (e.code === 'ArrowRight') {
+    e.preventDefault()
+    if (audioContext) {
+      const t = Math.min(duration.value, (audioContext.currentTime || currentTime.value) + 5)
+      audioContext.seek(t)
+      currentTime.value = t
+    }
+  }
+}
+document.addEventListener('keydown', handleKeydown)
+// #endif
 </script>
 
 <template>
@@ -897,6 +980,15 @@ onUnload(() => {
       >
         查看修改建议
       </view>
+      <!-- Pre-study vocabulary button -->
+      <view
+        v-if="preStudyWords.length > 0"
+        class="mb-3 text-center"
+      >
+        <wd-button type="info" size="small" @click="showPreStudy = true; preStudyMode = 'list'">
+          生词预习 ({{ preStudyWords.length }})
+        </wd-button>
+      </view>
       <view class="lyrics-scroll-container">
         <view
           v-for="(line, index) in lyrics"
@@ -976,9 +1068,9 @@ onUnload(() => {
             <view class="text-lg font-bold">{{ selectedToken.text }}</view>
             <view
               class="text-base"
-              :class="playingWord === selectedToken.text ? 'text-blue-500' : 'text-gray-400'"
-              @click="playWord(selectedToken.text)"
-            >🔊</view>
+              :class="playingWord === selectedToken.text ? 'text-blue-500' : loadingWord === selectedToken.text ? 'text-orange-400 animate-pulse' : 'text-gray-400'"
+              @click="playWord(selectedToken.text, selectedToken.kana)"
+            >{{ loadingWord === selectedToken.text ? '⏳' : '🔊' }}</view>
           </view>
           <wd-icon name="close" @click="closeWordDetail" />
         </view>
@@ -1152,9 +1244,9 @@ onUnload(() => {
                   <wd-tag v-if="word.pos" type="info" size="small">{{ word.pos }}</wd-tag>
                   <view
                     class="flex-shrink-0 text-sm px-1"
-                    :class="playingWord === word.word ? 'text-blue-500' : 'text-gray-400'"
-                    @click.stop="playWord(word.word)"
-                  >🔊</view>
+                    :class="playingWord === word.word ? 'text-blue-500' : loadingWord === word.word ? 'text-orange-400 animate-pulse' : 'text-gray-400'"
+                    @click.stop="playWord(word.word, word.kana)"
+                  >{{ loadingWord === word.word ? '⏳' : '🔊' }}</view>
                 </view>
                 <template v-if="preStudyRevealedWords.has(word.base_form || word.word)">
                   <view class="text-sm text-gray-500 mt-1">{{ word.kana }}</view>
@@ -1210,9 +1302,9 @@ onUnload(() => {
               </view>
               <view
                 class="text-xl"
-                :class="playingWord === preStudyActiveLevelWords[currentPreStudyIndex].word ? 'text-blue-500' : 'text-gray-400'"
-                @click="playWord(preStudyActiveLevelWords[currentPreStudyIndex].word)"
-              >🔊</view>
+                :class="playingWord === preStudyActiveLevelWords[currentPreStudyIndex].word ? 'text-blue-500' : loadingWord === preStudyActiveLevelWords[currentPreStudyIndex].word ? 'text-orange-400 animate-pulse' : 'text-gray-400'"
+                @click="playWord(preStudyActiveLevelWords[currentPreStudyIndex].word, preStudyActiveLevelWords[currentPreStudyIndex].kana)"
+              >{{ loadingWord === preStudyActiveLevelWords[currentPreStudyIndex].word ? '⏳' : '🔊' }}</view>
             </view>
             <view class="mb-2 flex gap-1">
               <wd-tag type="success" size="small">
@@ -1261,3 +1353,13 @@ onUnload(() => {
     </wd-popup>
   </view>
 </template>
+
+<style scoped>
+/* Desktop: keyboard shortcut hint */
+@media (min-width: 768px) {
+  .audio-player {
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+</style>

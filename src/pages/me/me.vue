@@ -150,6 +150,16 @@ async function handleRedeem() {
         </view>
       </view>
 
+      <!-- Admin Entry -->
+      <view
+        v-if="userStore.userInfo?.isAdmin"
+        class="mt-4 bg-white rounded-lg px-4 py-3 flex items-center justify-between"
+        @click="uni.navigateTo({ url: '/pages/admin/index' })"
+      >
+        <view class="text-sm text-gray-700">管理后台</view>
+        <view class="text-gray-400 text-xs">→</view>
+      </view>
+
       <view class="mt-6">
         <view
           class="bg-white rounded-lg px-4 py-3 text-center text-red-500 text-sm"
