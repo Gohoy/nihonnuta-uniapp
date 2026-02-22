@@ -38,6 +38,9 @@ const membershipExpireText = computed(() => {
 
 onShow(() => {
   checkLogin()
+  if (isLoggedIn.value) {
+    userStore.fetchUserInfo().catch(() => {})
+  }
 })
 checkLogin()
 
