@@ -1337,7 +1337,7 @@ document.addEventListener('keydown', handleKeydown)
 
     <!-- Settings popup -->
     <wd-popup v-model="showSettings" position="bottom" :close-on-click-overlay="true">
-      <view class="p-4 bg-white rounded-t-lg">
+      <view class="p-4 pb-20 bg-white rounded-t-lg">
         <view class="mb-4 flex items-center justify-between">
           <text class="text-lg font-bold">播放设置</text>
           <wd-icon name="close" @click="showSettings = false" />
